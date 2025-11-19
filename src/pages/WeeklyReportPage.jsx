@@ -1,37 +1,12 @@
-/* eslint-disable no-unused-vars */
-import { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { useForm } from "react-hook-form";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card";
-// import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { CalendarIcon, FileTextIcon, PlusCircleIcon } from "lucide-react";
-// import { useAuth } from "@/hooks/useAuth";
 
 export default function WeeklyReportPage() {
   // ---------- auth & state ----------
-  const { user, token } = useAuth();
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const { register, handleSubmit, reset } = useForm();
+  const { user, token } = useAuth()
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const { register, handleSubmit, reset } = useForm()
 
   // ---------- fetch reports ----------
   useEffect(() => {
@@ -39,18 +14,18 @@ export default function WeeklyReportPage() {
       try {
         const res = await fetch("/api/reports", {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to fetch reports");
-        const data = await res.json();
-        setReports(data);
+        })
+        if (!res.ok) throw new Error("Failed to fetch reports")
+        const data = await res.json()
+        setReports(data)
       } catch (e) {
-        setError(e.message);
+        setError(e.message)
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
-    if (token) fetchReports();
-  }, [token]);
+    if (token) fetchReports()
+  }, [token])
 
   // ---------- create report ----------
   const onSubmit = async (data) => {
@@ -62,26 +37,26 @@ export default function WeeklyReportPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to create report");
-      const newReport = await res.json();
-      setReports((prev) => [newReport, ...prev]);
-      reset();
-      setShowCreateDialog(false);
+      })
+      if (!res.ok) throw new Error("Failed to create report")
+      const newReport = await res.json()
+      setReports((prev) => [newReport, ...prev])
+      reset()
+      setShowCreateDialog(false)
     } catch (e) {
-      setError(e.message);
+      setError(e.message)
     }
-  };
+  }
 
   // ---------- progress bar logic ----------
-  const now = new Date();
+  const now = new Date()
   const thisMonthReports = reports.filter(
     (r) => new Date(r.weekStart).getMonth() === now.getMonth()
-  );
-  const progressPercent = (thisMonthReports.length / 4) * 100; // max 4 weeks/month
+  )
+  const progressPercent = (thisMonthReports.length / 4) * 100 // max 4 weeks/month
 
-  if (loading) return <div className="p-6 text-center">Loading…</div>;
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+  if (loading) return <div className="p-6 text-center">Loading…</div>
+  if (error) return <div className="p-6 text-red-500">{error}</div>
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -119,10 +94,7 @@ export default function WeeklyReportPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {reports.map((report) => (
-            <Card
-              key={report._id}
-              className="hover:shadow-lg transition-shadow"
-            >
+            <Card key={report._id} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5" />
@@ -166,10 +138,7 @@ export default function WeeklyReportPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Week Start</label>
-              <Input
-                type="date"
-                {...register("weekStart", { required: true })}
-              />
+              <Input type="date" {...register("weekStart", { required: true })} />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Week End</label>
@@ -192,11 +161,7 @@ export default function WeeklyReportPage() {
               <Textarea {...register("goals")} />
             </div>
             <DialogFooter>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowCreateDialog(false)}
-              >
+              <Button type="button" variant="secondary" onClick={() => setShowCreateDialog(false)}>
                 Cancel
               </Button>
               <Button type="submit">Submit</Button>
@@ -205,5 +170,5 @@ export default function WeeklyReportPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }
