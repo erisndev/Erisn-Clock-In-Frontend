@@ -1,0 +1,33 @@
+@import "tailwindcss";
+.page-container {
+  padding: 20px;
+}
+
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-form input,
+.report-form textarea,
+.report-form select {
+  padding: 8px;
+  font-size: 16px;
+}
+
+.btn-submit {
+  padding: 10px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.report-card {
+  padding: 15px;
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+  border-radius: 8px;
+}
+
