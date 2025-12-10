@@ -6,10 +6,10 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* 👇 THIS IS YOUR HOME ROUTE */}
+        {/* */}
         <Route path="/" element={<WeeklyReport />} />
 
-        {/* Your other pages */}
+        {/* */}
         <Route path="/weekly-report" element={<WeeklyReport />} />
         <Route path="/weekly-progress-report" element={<WeeklyProgressReport />} />
       </Routes>
