@@ -4,6 +4,7 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import FileUpload from "../../components/FileUpload"
+import useScrollLock from "../../hooks/useScrollLock"
 
 export default function NewReport() {
   const navigate = useNavigate()
@@ -14,9 +15,13 @@ export default function NewReport() {
   const [files, setFiles] = useState([])
   const [showModal, setShowModal] = useState(false)
 
+  // Lock scroll when modal is open
+  useScrollLock(showModal)
+
   const handleSubmit = (e) => {
     e.preventDefault()
 
+    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null")
     const reports = JSON.parse(localStorage.getItem("reports") || "[]")
     const newReport = {
       id: Date.now(),
@@ -25,8 +30,9 @@ export default function NewReport() {
       endDate,
       description,
       files,
-      status: "pending",
       submittedAt: new Date().toISOString(),
+      userId: currentUser?.id || null,
+      userName: currentUser?.name || "Unknown",
     }
 
     reports.push(newReport)

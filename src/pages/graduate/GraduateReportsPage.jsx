@@ -2,11 +2,15 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
+import useScrollLock from "../../hooks/useScrollLock";
 
 export default function GraduateReportsPage() {
   const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [showNewReport, setShowNewReport] = useState(false);
+
+  // Lock scroll when modal is open
+  useScrollLock(showNewReport);
   const [weekStart, setWeekStart] = useState("");
   const [weekEnd, setWeekEnd] = useState("");
   const [summary, setSummary] = useState("");
@@ -17,8 +21,13 @@ export default function GraduateReportsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
     const storedReports = JSON.parse(localStorage.getItem("reports") || "[]");
-    setReports(storedReports);
+    // Filter reports to show only the current user's reports
+    const userReports = storedReports.filter(
+      (report) => report.userId === currentUser?.id
+    );
+    setReports(userReports);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -40,15 +49,18 @@ export default function GraduateReportsPage() {
       learnings,
       nextWeek,
       goals,
-      status: "pending",
       submittedAt: new Date().toISOString(),
       userId: currentUser?.id || null,
       userName: currentUser?.name || "Unknown",
     };
 
-    const updatedReports = [...reports, newReport];
-    localStorage.setItem("reports", JSON.stringify(updatedReports));
-    setReports(updatedReports);
+    // Get all reports and add the new one
+    const allReports = JSON.parse(localStorage.getItem("reports") || "[]");
+    const updatedAllReports = [...allReports, newReport];
+    localStorage.setItem("reports", JSON.stringify(updatedAllReports));
+    
+    // Update local state with user's reports
+    setReports([...reports, newReport]);
 
     setShowNewReport(false);
     setWeekStart("");
@@ -59,12 +71,6 @@ export default function GraduateReportsPage() {
     setNextWeek("");
     setGoals("");
     setIsSubmitting(false);
-  };
-
-  const statusConfig = {
-    pending: { class: "badge-pending", label: "Pending" },
-    approved: { class: "badge-approved", label: "Approved" },
-    rejected: { class: "badge-rejected", label: "Rejected" },
   };
 
   return (
@@ -80,7 +86,7 @@ export default function GraduateReportsPage() {
             <div>
               <h1 className="page-title">Weekly Reports</h1>
               <p className="page-subtitle mt-1">
-                Submit and track your weekly progress reports
+                Submit your weekly progress reports
               </p>
             </div>
             <button
@@ -133,8 +139,8 @@ export default function GraduateReportsPage() {
                         {report.weekStart} - {report.weekEnd}
                       </p>
                     </div>
-                    <span className={statusConfig[report.status].class}>
-                      {statusConfig[report.status].label}
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
+                      Submitted
                     </span>
                   </div>
                   <p className="text-sm text-white/60 line-clamp-2 mb-3">
@@ -145,11 +151,11 @@ export default function GraduateReportsPage() {
                     {new Date(report.submittedAt).toLocaleDateString()}
                   </p>
                   {report.adminComment && (
-                    <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                      <p className="text-xs text-white/50 mb-1">
-                        Admin feedback:
+                    <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <p className="text-xs text-emerald-400 mb-1 font-medium">
+                        Admin Feedback:
                       </p>
-                      <p className="text-sm text-white/70">
+                      <p className="text-sm text-white/80">
                         {report.adminComment}
                       </p>
                     </div>

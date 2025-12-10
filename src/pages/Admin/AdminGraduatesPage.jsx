@@ -1,11 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 
+const DEPARTMENTS = [
+  "Software Development",
+  "Data Science",
+  "UI/UX Design",
+  "Project Management",
+  "Quality Assurance",
+  "DevOps",
+  "Business Analysis",
+  "Cybersecurity",
+];
+
 export default function AdminGraduatesPage() {
   const [graduates, setGraduates] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("All Departments");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -14,11 +26,14 @@ export default function AdminGraduatesPage() {
     setGraduates(grads);
   }, []);
 
-  const filteredGraduates = graduates.filter(
-    (g) =>
+  const filteredGraduates = graduates.filter((g) => {
+    const matchesSearch =
       g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      g.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDepartment =
+      selectedDepartment === "All Departments" || g.department === selectedDepartment;
+    return matchesSearch && matchesDepartment;
+  });
 
   const handleGraduateClick = (graduate) => {
     navigate(`/admin/graduates/${graduate.id}`);
@@ -35,6 +50,17 @@ export default function AdminGraduatesPage() {
     return { entries: entries.length, hours: totalHours.toFixed(1) };
   };
 
+  // Count graduates per department
+  const departmentCounts = useMemo(() => {
+    const counts = {};
+    graduates.forEach((g) => {
+      if (g.department) {
+        counts[g.department] = (counts[g.department] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [graduates]);
+
   return (
     <DashboardLayout role="admin">
       <motion.div
@@ -50,15 +76,37 @@ export default function AdminGraduatesPage() {
               View and manage all registered graduates
             </p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10">
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search */}
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/10 flex-1 sm:max-w-xs">
             <SearchIcon className="w-4 h-4 text-white/40" />
             <input
               type="text"
               placeholder="Search graduates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm text-white placeholder:text-white/40 w-48"
+              className="bg-transparent border-none outline-none text-sm text-white placeholder:text-white/40 w-full"
             />
+          </div>
+
+          {/* Department Filter */}
+          <div className="relative">
+            <select
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+              className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer min-w-[200px]"
+            >
+              <option value="All Departments" className="bg-[#1a1a1a]">All Departments</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept} className="bg-[#1a1a1a]">
+                  {dept} {departmentCounts[dept] ? `(${departmentCounts[dept]})` : "(0)"}
+                </option>
+              ))}
+            </select>
+            <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
@@ -78,9 +126,9 @@ export default function AdminGraduatesPage() {
             transition={{ delay: 0.05 }}
             className="stat-card"
           >
-            <span className="stat-label">Active Today</span>
+            <span className="stat-label">Filtered Results</span>
             <span className="stat-value text-emerald-400">
-              {Math.min(graduates.length, 3)}
+              {filteredGraduates.length}
             </span>
           </motion.div>
           <motion.div
@@ -89,8 +137,8 @@ export default function AdminGraduatesPage() {
             transition={{ delay: 0.1 }}
             className="stat-card"
           >
-            <span className="stat-label">This Week</span>
-            <span className="stat-value text-blue-400">{graduates.length}</span>
+            <span className="stat-label">Departments</span>
+            <span className="stat-value text-blue-400">{Object.keys(departmentCounts).length}</span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -108,11 +156,13 @@ export default function AdminGraduatesPage() {
           <div className="glass-card p-12 text-center">
             <UsersIcon className="w-12 h-12 mx-auto mb-4 text-white/20" />
             <h3 className="text-lg font-semibold text-white mb-2">
-              {searchQuery ? "No graduates found" : "No graduates registered"}
+              {searchQuery || selectedDepartment !== "All Departments"
+                ? "No graduates found"
+                : "No graduates registered"}
             </h3>
             <p className="text-white/50">
-              {searchQuery
-                ? "Try a different search term"
+              {searchQuery || selectedDepartment !== "All Departments"
+                ? "Try adjusting your filters"
                 : "Graduates will appear here once they register"}
             </p>
           </div>
@@ -140,6 +190,11 @@ export default function AdminGraduatesPage() {
                         {graduate.name}
                       </h3>
                       <p className="text-sm text-white/50 truncate">{graduate.email}</p>
+                      {graduate.department && (
+                        <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
+                          {graduate.department}
+                        </span>
+                      )}
                       <div className="flex items-center gap-3 mt-2">
                         <span className="text-xs text-white/40">
                           {stats.entries} entries
@@ -182,6 +237,14 @@ function ChevronRightIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
     </svg>
   );
 }

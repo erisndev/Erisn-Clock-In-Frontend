@@ -21,21 +21,23 @@ export default function Clock() {
     const savedAccumulatedTime = localStorage.getItem("accumulatedTime");
     const savedBreakTaken = localStorage.getItem("breakTaken") === "true";
     const user = JSON.parse(localStorage.getItem("currentUser") || "null");
-    
+
     if (savedStatus) setStatus(savedStatus);
     if (savedStartTime) setStartTime(Number.parseInt(savedStartTime));
-    if (savedBreakStartTime) setBreakStartTime(Number.parseInt(savedBreakStartTime));
-    if (savedAccumulatedTime) setAccumulatedTime(Number.parseInt(savedAccumulatedTime));
+    if (savedBreakStartTime)
+      setBreakStartTime(Number.parseInt(savedBreakStartTime));
+    if (savedAccumulatedTime)
+      setAccumulatedTime(Number.parseInt(savedAccumulatedTime));
     setBreakTaken(savedBreakTaken);
     setCurrentUser(user);
   }, []);
 
   const handleClockIn = async () => {
     setIsLoading(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
     const now = Date.now();
     setStatus("clocked-in");
     setStartTime(now);
@@ -57,23 +59,23 @@ export default function Clock() {
       userName: currentUser?.name || "Unknown",
     });
     localStorage.setItem("timesheet", JSON.stringify(timesheet));
-    
+
     setIsLoading(false);
   };
 
   const handleClockOut = async () => {
     setIsLoading(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
     const timesheet = JSON.parse(localStorage.getItem("timesheet") || "[]");
     const currentUserId = currentUser?.id;
-    
+
     const lastEntryIndex = timesheet.findLastIndex(
       (entry) => entry.userId === currentUserId && !entry.clockOut
     );
-    
+
     if (lastEntryIndex !== -1) {
       timesheet[lastEntryIndex].clockOut = Date.now();
       localStorage.setItem("timesheet", JSON.stringify(timesheet));
@@ -91,16 +93,16 @@ export default function Clock() {
     localStorage.removeItem("breakTaken");
     setNote("");
     setImage(null);
-    
+
     setIsLoading(false);
   };
 
   const handleStartBreak = async () => {
     setIsLoading(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
     const now = Date.now();
     const timeWorked = now - startTime;
     setAccumulatedTime(timeWorked);
@@ -111,16 +113,16 @@ export default function Clock() {
     localStorage.setItem("breakStartTime", now);
     localStorage.setItem("accumulatedTime", timeWorked.toString());
     localStorage.setItem("breakTaken", "true");
-    
+
     setIsLoading(false);
   };
 
   const handleEndBreak = async () => {
     setIsLoading(true);
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
     const now = Date.now();
     const adjustedStartTime = now - accumulatedTime;
     setStartTime(adjustedStartTime);
@@ -129,7 +131,7 @@ export default function Clock() {
     localStorage.setItem("clockStatus", "clocked-in");
     localStorage.setItem("clockStartTime", adjustedStartTime.toString());
     localStorage.removeItem("breakStartTime");
-    
+
     setIsLoading(false);
   };
 
@@ -178,12 +180,20 @@ export default function Clock() {
         {/* Status indicator */}
         <div className="flex items-center justify-center mb-8">
           <div className="flex items-center gap-4">
-            <div className={`relative w-4 h-4 rounded-full ${currentStatus.color}`}>
-              <div className={`absolute inset-0 rounded-full ${currentStatus.color} animate-ping opacity-75`} />
+            <div
+              className={`relative w-4 h-4 rounded-full ${currentStatus.color}`}
+            >
+              <div
+                className={`absolute inset-0 rounded-full ${currentStatus.color} animate-ping opacity-75`}
+              />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{currentStatus.label}</h2>
-              <p className="text-sm text-white/50">{currentStatus.description}</p>
+              <h2 className="text-xl font-bold text-white">
+                {currentStatus.label}
+              </h2>
+              <p className="text-sm text-white/50">
+                {currentStatus.description}
+              </p>
             </div>
           </div>
         </div>
@@ -203,7 +213,11 @@ export default function Clock() {
                 </p>
               </div>
               {status === "on-break" ? (
-                <Timer startTime={startTime} isRunning={false} pausedAt={accumulatedTime} />
+                <Timer
+                  startTime={startTime}
+                  isRunning={false}
+                  pausedAt={accumulatedTime}
+                />
               ) : (
                 <Timer startTime={startTime} isRunning={true} />
               )}
@@ -221,7 +235,9 @@ export default function Clock() {
               className="mb-8 pt-6 border-t border-white/10"
             >
               <div className="text-center mb-2">
-                <p className="text-xs text-white/40 uppercase tracking-wider">Break Time Remaining</p>
+                <p className="text-xs text-white/40 uppercase tracking-wider">
+                  Break Time Remaining
+                </p>
               </div>
               <BreakTimer startTime={breakStartTime} breakDuration={90} />
             </motion.div>
@@ -385,44 +401,6 @@ export default function Clock() {
               className="input-field"
             />
           </div>
-
-          {/* Image Upload */}
-          <div>
-            <label className="input-label">Attachment</label>
-            <div className="relative">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-              <div className="flex items-center justify-center gap-3 py-4 px-4 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/20 transition-all duration-200">
-                <UploadIcon className="w-5 h-5 text-white/40" />
-                <span className="text-sm text-white/50">
-                  {image ? "Change image" : "Upload an image"}
-                </span>
-              </div>
-            </div>
-            {image && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mt-3 relative inline-block"
-              >
-                <img
-                  src={image}
-                  alt="Preview"
-                  className="max-w-[200px] rounded-xl border border-white/10"
-                />
-                <button
-                  onClick={() => setImage(null)}
-                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
-                >
-                  <XIcon className="w-3 h-3" />
-                </button>
-              </motion.div>
-            )}
-          </div>
         </div>
       </motion.div>
     </div>
@@ -478,16 +456,36 @@ function PauseIcon({ className }) {
 
 function UploadIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+      />
     </svg>
   );
 }
 
 function XIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 18L18 6M6 6l12 12"
+      />
     </svg>
   );
 }

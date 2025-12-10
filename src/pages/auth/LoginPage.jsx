@@ -58,9 +58,7 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center shadow-lg shadow-brand-red/30">
-            <span className="text-white font-bold text-xl">C</span>
-          </div>
+          <img src="/ELogo.png" alt="Erisn Logo" className="w-12 h-12 rounded-xl shadow-lg shadow-brand-red/30" />
           <span className="text-white font-bold text-2xl">ClockIn</span>
         </Link>
 

@@ -1,17 +1,6 @@
 import { motion } from "framer-motion";
 
-export default function ReportCard({
-  report,
-  onApprove,
-  onReject,
-  isAdmin = false,
-}) {
-  const statusConfig = {
-    pending: { class: "badge-pending", label: "Pending" },
-    approved: { class: "badge-approved", label: "Approved" },
-    rejected: { class: "badge-rejected", label: "Rejected" },
-  };
-
+export default function ReportCard({ report }) {
   return (
     <motion.div whileHover={{ y: -2 }} className="glass-card-hover p-5">
       <div className="flex items-start justify-between mb-3">
@@ -23,8 +12,8 @@ export default function ReportCard({
             {report.startDate} - {report.endDate}
           </p>
         </div>
-        <span className={statusConfig[report.status].class}>
-          {statusConfig[report.status].label}
+        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
+          Submitted
         </span>
       </div>
 
@@ -36,27 +25,10 @@ export default function ReportCard({
         Submitted {new Date(report.submittedAt).toLocaleDateString()}
       </p>
 
-      {isAdmin && report.status === "pending" && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => onApprove?.(report.id)}
-            className="flex-1 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-sm font-medium hover:bg-emerald-500/20 transition-colors"
-          >
-            Approve
-          </button>
-          <button
-            onClick={() => onReject?.(report.id)}
-            className="flex-1 py-2 rounded-lg bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors"
-          >
-            Reject
-          </button>
-        </div>
-      )}
-
       {report.adminComment && (
-        <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-          <p className="text-xs text-white/50 mb-1">Admin feedback:</p>
-          <p className="text-sm text-white/70">{report.adminComment}</p>
+        <div className="mt-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <p className="text-xs text-emerald-400 mb-1 font-medium">Admin Feedback:</p>
+          <p className="text-sm text-white/80">{report.adminComment}</p>
         </div>
       )}
     </motion.div>

@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import useScrollLock from "../../hooks/useScrollLock";
 
 export default function DashboardLayout({ role = "graduate", children }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Lock scroll when mobile sidebar is open
+  useScrollLock(mobileOpen);
 
   const graduateLinks = [
     { to: "/graduate", label: "Overview", icon: HomeIcon },
@@ -44,9 +48,7 @@ export default function DashboardLayout({ role = "graduate", children }) {
     <>
       <div className="px-4 py-6 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center shadow-lg shadow-brand-red/30">
-            <span className="text-white font-bold text-lg">C</span>
-          </div>
+          <img src="/ELogo.png" alt="Erisn Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-brand-red/30" />
           <div>
             <h1 className="text-base font-bold text-white">
               {role === "admin" ? "Admin" : "Graduate"}
@@ -83,9 +85,7 @@ export default function DashboardLayout({ role = "graduate", children }) {
       {/* Mobile header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-black/50 backdrop-blur-xl lg:hidden sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
-          </div>
+          <img src="/ELogo.png" alt="Erisn Logo" className="w-8 h-8 rounded-lg" />
           <div>
             <h1 className="text-sm font-bold text-white">
               {role === "admin" ? "Admin" : "Graduate"}

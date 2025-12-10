@@ -3,12 +3,32 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 
+// Helper function to get all weekdays (Mon-Fri) for a given month
+function getWeekdaysInMonth(year, month) {
+  const weekdays = [];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    // 0 = Sunday, 6 = Saturday - skip weekends
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      weekdays.push(date);
+    }
+  }
+  return weekdays;
+}
+
 export default function AdminGraduateDetailPage() {
   const { id } = useParams();
   const graduateId = Number(id);
   const [graduate, setGraduate] = useState(null);
   const [timesheet, setTimesheet] = useState([]);
   const [reports, setReports] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   useEffect(() => {
     const users = JSON.parse(localStorage.getItem("users") || "[]");
@@ -40,88 +60,158 @@ export default function AdminGraduateDetailPage() {
     return ms / 3600000;
   }, [timesheet]);
 
+  // Generate attendance data for all weekdays in selected month
+  const attendanceData = useMemo(() => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const weekdays = getWeekdaysInMonth(year, month - 1);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    // Create a map of timesheet entries by date
+    const timesheetByDate = {};
+    timesheet.forEach((entry) => {
+      const dateKey = new Date(entry.date).toISOString().split("T")[0];
+      if (!timesheetByDate[dateKey]) {
+        timesheetByDate[dateKey] = [];
+      }
+      timesheetByDate[dateKey].push(entry);
+    });
+
+    return weekdays.map((date) => {
+      const dateKey = date.toISOString().split("T")[0];
+      const entries = timesheetByDate[dateKey] || [];
+      const isFuture = date > today;
+
+      if (entries.length > 0) {
+        // Has clock-in entries
+        const totalMs = entries.reduce((acc, entry) => {
+          if (entry.clockOut) return acc + (entry.clockOut - entry.clockIn);
+          return acc;
+        }, 0);
+        const firstEntry = entries[0];
+        const lastEntry = entries[entries.length - 1];
+        
+        return {
+          date,
+          dateKey,
+          status: lastEntry.clockOut ? "present" : "in-progress",
+          clockIn: new Date(firstEntry.clockIn),
+          clockOut: lastEntry.clockOut ? new Date(lastEntry.clockOut) : null,
+          hours: totalMs / 3600000,
+          entries,
+        };
+      } else if (isFuture) {
+        return {
+          date,
+          dateKey,
+          status: "future",
+          clockIn: null,
+          clockOut: null,
+          hours: 0,
+          entries: [],
+        };
+      } else {
+        return {
+          date,
+          dateKey,
+          status: "absent",
+          clockIn: null,
+          clockOut: null,
+          hours: 0,
+          entries: [],
+        };
+      }
+    });
+  }, [timesheet, selectedMonth]);
+
+  // Calculate stats for selected month
+  const monthStats = useMemo(() => {
+    const presentDays = attendanceData.filter((d) => d.status === "present" || d.status === "in-progress").length;
+    const absentDays = attendanceData.filter((d) => d.status === "absent").length;
+    const totalWorkDays = attendanceData.filter((d) => d.status !== "future").length;
+    const totalHoursMonth = attendanceData.reduce((acc, d) => acc + d.hours, 0);
+    
+    return {
+      presentDays,
+      absentDays,
+      totalWorkDays,
+      totalHoursMonth,
+      attendanceRate: totalWorkDays > 0 ? ((presentDays / totalWorkDays) * 100).toFixed(0) : 0,
+    };
+  }, [attendanceData]);
+
+  // Generate month options (last 12 months)
+  const monthOptions = useMemo(() => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const label = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      options.push({ value, label });
+    }
+    return options;
+  }, []);
+
   const exportClockins = () => {
     if (!graduate) return;
 
-    const now = new Date();
-    const sortedEntries = [...timesheet].sort((a, b) => b.clockIn - a.clockIn);
-    const refDate =
-      sortedEntries.length > 0 ? new Date(sortedEntries[0].date) : now;
-    const year = refDate.getFullYear();
-    const month = refDate.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const byDay = timesheet.reduce((acc, entry) => {
-      const d = new Date(entry.date);
-      const key = d.toISOString().split("T")[0];
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(entry);
-      return acc;
-    }, {});
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const monthName = new Date(year, month - 1).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
 
     const rows = [];
 
     // Header with graduate info
-    const monthName = new Date(year, month).toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
     rows.push([`Name: ${graduate.name}`]);
     rows.push([`Email: ${graduate.email}`]);
+    if (graduate.department) rows.push([`Department: ${graduate.department}`]);
     rows.push([`Month: ${monthName}`]);
     rows.push([]); // Empty row
 
     // Column headers
-    rows.push(["Date", "Clock In", "Clock Out", "Hours", "Status"]);
+    rows.push(["Date", "Day", "Clock In", "Clock Out", "Hours", "Status"]);
 
     // Data rows
-    for (let day = 1; day <= daysInMonth; day++) {
-      const current = new Date(year, month, day);
-      const key = current.toISOString().split("T")[0];
-      const dateFormatted = current.toLocaleDateString("en-US", {
-        weekday: "short",
+    attendanceData.forEach((day) => {
+      const dateFormatted = day.date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       });
+      const dayName = day.date.toLocaleDateString("en-US", { weekday: "short" });
+      
+      let clockIn = "";
+      let clockOut = "";
+      let hours = "";
+      let status = "";
 
-      const entries = byDay[key] || [];
-      const isWeekend = current.getDay() === 0 || current.getDay() === 6;
-
-      if (entries.length === 0) {
-        rows.push([
-          dateFormatted,
-          "",
-          "",
-          "",
-          isWeekend ? "Weekend" : "Absent",
-        ]);
+      if (day.status === "present") {
+        clockIn = day.clockIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        clockOut = day.clockOut ? day.clockOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+        hours = day.hours.toFixed(2);
+        status = "Present";
+      } else if (day.status === "in-progress") {
+        clockIn = day.clockIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+        status = "In Progress";
+      } else if (day.status === "absent") {
+        status = "Absent";
       } else {
-        entries.forEach((entry) => {
-          const clockIn = new Date(entry.clockIn).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          });
-          const clockOut = entry.clockOut
-            ? new Date(entry.clockOut).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "";
-          const hours = entry.clockOut
-            ? ((entry.clockOut - entry.clockIn) / 3600000).toFixed(2)
-            : "";
-
-          rows.push([dateFormatted, clockIn, clockOut, hours, "Present"]);
-        });
+        status = "Upcoming";
       }
-    }
 
-    // Add total row
+      rows.push([dateFormatted, dayName, clockIn, clockOut, hours, status]);
+    });
+
+    // Add summary
     rows.push([]); // Empty row
-    rows.push(["", "", "Total Hours:", totalHours.toFixed(2), ""]);
+    rows.push(["Summary"]);
+    rows.push([`Present Days: ${monthStats.presentDays}`]);
+    rows.push([`Absent Days: ${monthStats.absentDays}`]);
+    rows.push([`Total Hours: ${monthStats.totalHoursMonth.toFixed(2)}`]);
+    rows.push([`Attendance Rate: ${monthStats.attendanceRate}%`]);
 
     // Convert to CSV
     const csvContent = rows
@@ -144,7 +234,7 @@ export default function AdminGraduateDetailPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${safeName}_timesheet.csv`;
+    a.download = `${safeName}_attendance_${selectedMonth}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -183,6 +273,16 @@ export default function AdminGraduateDetailPage() {
             <div>
               <h1 className="page-title">{graduate.name}</h1>
               <p className="text-white/50">{graduate.email}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                {graduate.cellNumber && (
+                  <span className="text-sm text-white/40">{graduate.cellNumber}</span>
+                )}
+                {graduate.department && (
+                  <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
+                    {graduate.department}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <Link to="/admin/graduates" className="btn-secondary">
@@ -192,14 +292,14 @@ export default function AdminGraduateDetailPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="stat-card"
           >
-            <span className="stat-label">Clock-in Entries</span>
-            <span className="stat-value">{timesheet.length}</span>
+            <span className="stat-label">Present Days</span>
+            <span className="stat-value text-emerald-400">{monthStats.presentDays}</span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -207,10 +307,8 @@ export default function AdminGraduateDetailPage() {
             transition={{ delay: 0.05 }}
             className="stat-card"
           >
-            <span className="stat-label">Total Hours</span>
-            <span className="stat-value text-brand-red">
-              {totalHours.toFixed(1)}
-            </span>
+            <span className="stat-label">Absent Days</span>
+            <span className="stat-value text-red-400">{monthStats.absentDays}</span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -218,8 +316,10 @@ export default function AdminGraduateDetailPage() {
             transition={{ delay: 0.1 }}
             className="stat-card"
           >
-            <span className="stat-label">Reports</span>
-            <span className="stat-value text-blue-400">{reports.length}</span>
+            <span className="stat-label">Month Hours</span>
+            <span className="stat-value text-brand-red">
+              {monthStats.totalHoursMonth.toFixed(1)}
+            </span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -227,119 +327,130 @@ export default function AdminGraduateDetailPage() {
             transition={{ delay: 0.15 }}
             className="stat-card"
           >
-            <span className="stat-label">Avg Hours/Day</span>
-            <span className="stat-value text-emerald-400">
-              {timesheet.length > 0
-                ? (totalHours / timesheet.length).toFixed(1)
-                : "0"}
-            </span>
+            <span className="stat-label">Attendance</span>
+            <span className="stat-value text-blue-400">{monthStats.attendanceRate}%</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="stat-card"
+          >
+            <span className="stat-label">Reports</span>
+            <span className="stat-value">{reports.length}</span>
           </motion.div>
         </div>
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Clock-in History */}
+          {/* Attendance History */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             className="lg:col-span-2 glass-card p-6"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="section-title">Clock-In History</h2>
-              <button
-                onClick={exportClockins}
-                className="btn-primary text-sm py-2"
-              >
-                <ExportIcon className="w-4 h-4" />
-                Export CSV
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <h2 className="section-title">Attendance History</h2>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="appearance-none px-4 py-2 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
+                  >
+                    {monthOptions.map((option) => (
+                      <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                <button
+                  onClick={exportClockins}
+                  className="btn-primary text-sm py-2"
+                >
+                  <ExportIcon className="w-4 h-4" />
+                  Export
+                </button>
+              </div>
             </div>
 
-            {timesheet.length === 0 ? (
-              <div className="py-8 text-center text-white/40">
-                <ClockIcon className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No clock-in data available</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/[0.06]">
-                      <th className="table-header">Date</th>
-                      <th className="table-header">Clock In</th>
-                      <th className="table-header">Clock Out</th>
-                      <th className="table-header">Hours</th>
-                      <th className="table-header">Status</th>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="table-header">Date</th>
+                    <th className="table-header">Day</th>
+                    <th className="table-header">Clock In</th>
+                    <th className="table-header">Clock Out</th>
+                    <th className="table-header">Hours</th>
+                    <th className="table-header">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceData.map((day) => (
+                    <tr
+                      key={day.dateKey}
+                      className={`border-b border-white/[0.04] ${day.status === "absent" ? "bg-red-500/5" : ""}`}
+                    >
+                      <td className="table-cell font-medium text-white">
+                        {day.date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                      <td className="table-cell text-white/60">
+                        {day.date.toLocaleDateString("en-US", { weekday: "short" })}
+                      </td>
+                      <td className="table-cell">
+                        {day.clockIn
+                          ? day.clockIn.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : "-"}
+                      </td>
+                      <td className="table-cell">
+                        {day.clockOut
+                          ? day.clockOut.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : "-"}
+                      </td>
+                      <td className="table-cell">
+                        {day.hours > 0 ? day.hours.toFixed(2) : "-"}
+                      </td>
+                      <td className="table-cell">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
+                            day.status === "present"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : day.status === "in-progress"
+                              ? "bg-amber-500/10 text-amber-400"
+                              : day.status === "absent"
+                              ? "bg-red-500/10 text-red-400"
+                              : "bg-white/10 text-white/40"
+                          }`}
+                        >
+                          {day.status === "present"
+                            ? "Present"
+                            : day.status === "in-progress"
+                            ? "In Progress"
+                            : day.status === "absent"
+                            ? "Absent"
+                            : "Upcoming"}
+                        </span>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {[...timesheet]
-                      .sort((a, b) => b.clockIn - a.clockIn)
-                      .slice(0, 15)
-                      .map((entry) => {
-                        const durationMs = entry.clockOut
-                          ? entry.clockOut - entry.clockIn
-                          : 0;
-                        const durationHours = (durationMs / 3600000).toFixed(2);
-                        return (
-                          <tr
-                            key={entry.id}
-                            className="border-b border-white/[0.04]"
-                          >
-                            <td className="table-cell font-medium text-white">
-                              {new Date(entry.date).toLocaleDateString(
-                                "en-US",
-                                {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                }
-                              )}
-                            </td>
-                            <td className="table-cell">
-                              {new Date(entry.clockIn).toLocaleTimeString(
-                                "en-US",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                }
-                              )}
-                            </td>
-                            <td className="table-cell">
-                              {entry.clockOut
-                                ? new Date(entry.clockOut).toLocaleTimeString(
-                                    "en-US",
-                                    {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      hour12: true,
-                                    }
-                                  )
-                                : "-"}
-                            </td>
-                            <td className="table-cell">
-                              {entry.clockOut ? `${durationHours}` : "-"}
-                            </td>
-                            <td className="table-cell">
-                              <span
-                                className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
-                                  entry.clockOut
-                                    ? "bg-emerald-500/10 text-emerald-400"
-                                    : "bg-amber-500/10 text-amber-400"
-                                }`}
-                              >
-                                {entry.clockOut ? "Present" : "In Progress"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </motion.div>
 
           {/* Reports */}
@@ -349,7 +460,14 @@ export default function AdminGraduateDetailPage() {
             transition={{ delay: 0.25 }}
             className="glass-card p-6"
           >
-            <h2 className="section-title mb-4">Reports</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="section-title">Weekly Reports</h2>
+              {reports.length > 0 && (
+                <span className="text-xs text-white/40">
+                  Showing {Math.min(4, reports.length)} of {reports.length}
+                </span>
+              )}
+            </div>
 
             {reports.length === 0 ? (
               <div className="py-8 text-center text-white/40">
@@ -357,38 +475,34 @@ export default function AdminGraduateDetailPage() {
                 <p>No reports submitted</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {reports.map((report) => (
+              <div className="space-y-3">
+                {[...reports]
+                  .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+                  .slice(0, 4)
+                  .map((report) => (
                   <div
                     key={report.id}
                     className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-medium text-white capitalize text-sm">
-                        {report.type} Report
+                        Weekly Report
                       </h4>
-                      <span
-                        className={`badge ${
-                          report.status === "approved"
-                            ? "badge-approved"
-                            : report.status === "rejected"
-                            ? "badge-rejected"
-                            : "badge-pending"
-                        }`}
-                      >
-                        {report.status}
+                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
+                        Submitted
                       </span>
                     </div>
                     <p className="text-xs text-white/50 mb-2">
-                      {report.startDate} - {report.endDate}
+                      {report.weekStart || report.startDate} - {report.weekEnd || report.endDate}
                     </p>
                     <p className="text-sm text-white/60 line-clamp-2">
-                      {report.description}
+                      {report.summary || report.description}
                     </p>
                     {report.adminComment && (
                       <div className="mt-2 pt-2 border-t border-white/[0.06]">
-                        <p className="text-xs text-white/40">
-                          Feedback: {report.adminComment}
+                        <p className="text-xs text-emerald-400 font-medium mb-1">Feedback:</p>
+                        <p className="text-xs text-white/60">
+                          {report.adminComment}
                         </p>
                       </div>
                     )}
@@ -440,19 +554,19 @@ function ExportIcon({ className }) {
   );
 }
 
-function ClockIcon({ className }) {
+function ChevronDownIcon({ className }) {
   return (
     <svg
       className={className}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
-      strokeWidth={1.5}
+      strokeWidth={2}
     >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
       />
     </svg>
   );

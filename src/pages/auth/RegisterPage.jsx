@@ -2,11 +2,24 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 
+const DEPARTMENTS = [
+  "Software Development",
+  "Data Science",
+  "UI/UX Design",
+  "Project Management",
+  "Quality Assurance",
+  "DevOps",
+  "Business Analysis",
+  "Cybersecurity",
+];
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [role, setRole] = useState("graduate");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [cellNumber, setCellNumber] = useState("");
+  const [department, setDepartment] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,7 +31,15 @@ export default function RegisterPage() {
     await new Promise((resolve) => setTimeout(resolve, 800));
 
     const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const newUser = { id: Date.now(), name, email, role };
+    const newUser = {
+      id: Date.now(),
+      name,
+      email,
+      cellNumber,
+      role,
+      ...(role === "graduate" && { department }),
+      createdAt: new Date().toISOString(),
+    };
     users.push(newUser);
     localStorage.setItem("users", JSON.stringify(users));
 
@@ -48,9 +69,7 @@ export default function RegisterPage() {
       >
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center shadow-lg shadow-brand-red/30">
-            <span className="text-white font-bold text-xl">C</span>
-          </div>
+          <img src="/ELogo.png" alt="Erisn Logo" className="w-12 h-12 rounded-xl shadow-lg shadow-brand-red/30" />
           <span className="text-white font-bold text-2xl">ClockIn</span>
         </Link>
 
@@ -115,6 +134,40 @@ export default function RegisterPage() {
                 className="input-field"
               />
             </div>
+
+            {/* Cell Number */}
+            <div>
+              <label className="input-label">Cell number</label>
+              <input
+                type="tel"
+                value={cellNumber}
+                onChange={(e) => setCellNumber(e.target.value)}
+                required
+                placeholder="+27 12 345 6789"
+                className="input-field"
+              />
+            </div>
+
+            {/* Department - Only for graduates */}
+            {role === "graduate" && (
+              <div>
+                <label className="input-label">Department</label>
+                <div className="relative">
+                  <select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    required
+                    className="input-field appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled className="bg-[#1a1a1a] text-white/50">Select your department</option>
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept} className="bg-[#1a1a1a] text-white">{dept}</option>
+                    ))}
+                  </select>
+                  <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            )}
 
             {/* Password */}
             <div>
@@ -220,6 +273,14 @@ function MicrosoftIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24">
       <path fill="currentColor" d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
     </svg>
   );
 }

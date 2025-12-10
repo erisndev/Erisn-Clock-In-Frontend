@@ -29,9 +29,9 @@ export default function AdminDashboard() {
   }, []);
 
   const stats = {
-    pending: reports.filter((r) => r.status === "pending").length,
-    approved: reports.filter((r) => r.status === "approved").length,
-    rejected: reports.filter((r) => r.status === "rejected").length,
+    totalReports: reports.length,
+    withFeedback: reports.filter((r) => r.adminComment).length,
+    awaitingFeedback: reports.filter((r) => !r.adminComment).length,
     totalGraduates: graduates.length,
   };
 
@@ -49,11 +49,11 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="page-title">Admin Dashboard</h1>
-            <p className="page-subtitle mt-1">Manage graduates and review reports</p>
+            <p className="page-subtitle mt-1">Manage graduates and view reports</p>
           </div>
           <Link to="/admin/reports" className="btn-primary">
             <InboxIcon className="w-4 h-4" />
-            Review Reports
+            View Reports
           </Link>
         </div>
 
@@ -84,8 +84,8 @@ export default function AdminDashboard() {
             transition={{ delay: 0.1 }}
             className="stat-card"
           >
-            <span className="stat-label">Pending</span>
-            <span className="stat-value text-amber-400">{stats.pending}</span>
+            <span className="stat-label">Total Reports</span>
+            <span className="stat-value text-blue-400">{stats.totalReports}</span>
           </motion.div>
 
           <motion.div
@@ -94,8 +94,8 @@ export default function AdminDashboard() {
             transition={{ delay: 0.15 }}
             className="stat-card"
           >
-            <span className="stat-label">Approved</span>
-            <span className="stat-value text-emerald-400">{stats.approved}</span>
+            <span className="stat-label">With Feedback</span>
+            <span className="stat-value text-emerald-400">{stats.withFeedback}</span>
           </motion.div>
 
           <motion.div
@@ -104,8 +104,8 @@ export default function AdminDashboard() {
             transition={{ delay: 0.2 }}
             className="stat-card col-span-2 lg:col-span-1"
           >
-            <span className="stat-label">Rejected</span>
-            <span className="stat-value text-red-400">{stats.rejected}</span>
+            <span className="stat-label">Awaiting Feedback</span>
+            <span className="stat-value text-amber-400">{stats.awaitingFeedback}</span>
           </motion.div>
         </div>
 
@@ -143,24 +143,22 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white capitalize">
-                          {report.type} Report
+                          {report.type || "Weekly"} Report
                         </p>
                         <p className="text-xs text-white/50">
-                          {report.startDate} - {report.endDate}
+                          {report.userName || "Graduate"} • {report.startDate || report.weekStart} - {report.endDate || report.weekEnd}
                         </p>
                       </div>
                     </div>
-                    <span
-                      className={`badge ${
-                        report.status === "approved"
-                          ? "badge-approved"
-                          : report.status === "rejected"
-                          ? "badge-rejected"
-                          : "badge-pending"
-                      }`}
-                    >
-                      {report.status}
-                    </span>
+                    {report.adminComment ? (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
+                        Feedback Sent
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
+                        New
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
