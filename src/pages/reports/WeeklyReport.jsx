@@ -7,13 +7,17 @@ const WeeklyReport = () => {
   const [tasks, setTasks] = useState("");
   const [challenges, setChallenges] = useState("");
   const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchReports = async () => {
     try {
+      setLoading(true);
       const res = await axios.get("/api/reports/weekly");
-      setReports(res.data);
+      setReports(res.data || []);
     } catch (err) {
       console.error("Error fetching reports:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,10 +34,13 @@ const WeeklyReport = () => {
     try {
       await axios.post("/api/reports/weekly", data);
       alert("Weekly report submitted!");
+
+      // reset form
       setWeek("");
       setSummary("");
       setTasks("");
       setChallenges("");
+
       fetchReports();
     } catch (err) {
       console.error("Error submitting report:", err);
@@ -78,26 +85,36 @@ const WeeklyReport = () => {
           onChange={(e) => setChallenges(e.target.value)}
         />
 
-        <button type="submit" className="btn-submit">Submit Report</button>
+        <button type="submit" className="btn-submit">
+          Submit Report
+        </button>
       </form>
 
       <hr />
 
       <h2>Previous Weekly Reports</h2>
-      <div className="report-list">
-        {reports.length === 0 ? (
-          <p>No reports submitted yet.</p>
-        ) : (
-          reports.map((r) => (
-            <div key={r.id} className="report-card">
-              <h3>Week {r.week}</h3>
-              <p><strong>Summary:</strong> {r.summary}</p>
-              <p><strong>Tasks:</strong> {r.tasks}</p>
-              <p><strong>Challenges:</strong> {r.challenges}</p>
-            </div>
-          ))
-        )}
-      </div>
+
+      {loading ? (
+        <p>Loading reports...</p>
+      ) : (
+        <div className="report-list">
+          {reports.length === 0 ? (
+            <p>No reports submitted yet.</p>
+          ) : (
+            reports.map((r, index) => (
+              <div
+                key={r.id || r._id || index}
+                className="report-card"
+              >
+                <h3>Week {r.week}</h3>
+                <p><strong>Summary:</strong> {r.summary}</p>
+                <p><strong>Tasks:</strong> {r.tasks}</p>
+                <p><strong>Challenges:</strong> {r.challenges}</p>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 };
