@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
-import Logo from "../../assets/ELogo.png";
+import Logo from "../../assets/logo.png";
 import LiveClock from "../../components/LiveClock";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
