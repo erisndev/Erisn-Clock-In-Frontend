@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
+import api from "../../services/Api";
 
 export default function AdminDashboard() {
   const [reports, setReports] = useState([]);
@@ -9,38 +10,65 @@ export default function AdminDashboard() {
   const [timesheet, setTimesheet] = useState([]);
 
   useEffect(() => {
-    // Seed demo data if empty
-    let users = JSON.parse(localStorage.getItem("users") || "[]");
-    if (users.length === 0) {
-      users = [
-        { id: 1, name: "Alice Johnson", email: "alice@example.com", role: "graduate" },
-        { id: 2, name: "Bob Smith", email: "bob@example.com", role: "graduate" },
-        { id: 3, name: "Carol Lee", email: "carol@example.com", role: "graduate" },
-      ];
-      localStorage.setItem("users", JSON.stringify(users));
-    }
+    const loadData = async () => {
+      try {
+        const [reportRes, graduatesRes, attendanceRes] = await Promise.all([
+          api.admin.getReports({ page: 1, limit: 50 }),
+          api.admin.getUsers({ role: "graduate", page: 1, limit: 100 }),
+          api.attendance.getAll({ page: 1, limit: 500 }),
+        ]);
 
-    const storedReports = JSON.parse(localStorage.getItem("reports") || "[]");
-    const ts = JSON.parse(localStorage.getItem("timesheet") || "[]");
+        setReports(reportRes.data || []);
+        setGraduates(graduatesRes.data || []);
+        
+        // Handle attendance response - could be { data: [] } or direct array
+        const attendanceArray = Array.isArray(attendanceRes?.data) 
+          ? attendanceRes.data 
+          : Array.isArray(attendanceRes) 
+            ? attendanceRes 
+            : [];
+        setTimesheet(attendanceArray);
+      } catch (error) {
+        console.error("Failed to load admin dashboard data", error);
+      }
+    };
 
-    setGraduates(users.filter((u) => u.role === "graduate"));
-    setReports(storedReports);
-    setTimesheet(ts);
+    loadData();
   }, []);
 
   const stats = {
     totalReports: reports.length,
-    withFeedback: reports.filter((r) => r.adminComment).length,
-    awaitingFeedback: reports.filter((r) => !r.adminComment).length,
+    withFeedback: reports.filter((r) => r.reviewComment).length,
+    awaitingFeedback: reports.filter((r) => !r.reviewComment && r.status === "Submitted").length,
     totalGraduates: graduates.length,
   };
 
-  const totalHours = timesheet.reduce((acc, entry) => {
-    if (entry.clockOut) return acc + (entry.clockOut - entry.clockIn);
+  const totalHours = Array.isArray(timesheet) ? timesheet.reduce((acc, entry) => {
+    // Handle duration as number (milliseconds)
+    if (typeof entry.duration === "number") {
+      return acc + entry.duration / (1000 * 60 * 60);
+    }
+    
+    // Handle duration as formatted string like "8h 30m"
+    if (typeof entry.duration === "string") {
+      const parts = entry.duration.split(" ");
+      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+      return acc + hours + minutes / 60;
+    }
+    
+    // Try durationFormatted if duration is not usable
+    if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
+      const parts = entry.durationFormatted.split(" ");
+      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+      return acc + hours + minutes / 60;
+    }
+    
     return acc;
-  }, 0) / 3600000;
+  }, 0) : 0;
 
-  const recentReports = reports.slice(-5).reverse();
+  const recentReports = reports.slice(0, 5);
 
   return (
     <DashboardLayout role="admin">
@@ -74,7 +102,7 @@ export default function AdminDashboard() {
             transition={{ delay: 0.05 }}
             className="stat-card"
           >
-            <span className="stat-label">Total Hours</span>
+            <span className="stat-label">Total Hours (sample)</span>
             <span className="stat-value text-brand-red">{totalHours.toFixed(0)}</span>
           </motion.div>
 
@@ -134,7 +162,7 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {recentReports.map((report) => (
                   <div
-                    key={report.id}
+                    key={report._id}
                     className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
                   >
                     <div className="flex items-center gap-3">
@@ -143,22 +171,18 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white capitalize">
-                          {report.type || "Weekly"} Report
+                          Weekly Report
                         </p>
                         <p className="text-xs text-white/50">
-                          {report.userName || "Graduate"} • {report.startDate || report.weekStart} - {report.endDate || report.weekEnd}
+                          {report.userId?.name || "Graduate"} •
+                          {" "}
+                          {new Date(report.weekStart).toLocaleDateString()} - {new Date(report.weekEnd).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    {report.adminComment ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
-                        Feedback Sent
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
-                        New
-                      </span>
-                    )}
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
+                      {report.status}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -188,13 +212,13 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {graduates.slice(0, 5).map((graduate) => (
                   <Link
-                    key={graduate.id}
-                    to={`/admin/graduates/${graduate.id}`}
+                    key={graduate._id}
+                    to={`/admin/graduates/${graduate._id}`}
                     className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">
-                        {graduate.name.charAt(0)}
+                        {graduate.name?.charAt(0) || "G"}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">

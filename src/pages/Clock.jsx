@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Timer from "../components/Timer";
 import BreakTimer from "../components/BreakTimer";
+import LiveClock from "../components/LiveClock";
+import api from "../services/Api";
+import toast from "react-hot-toast";
 
 export default function Clock() {
   const [status, setStatus] = useState("clocked-out");
@@ -10,139 +13,132 @@ export default function Clock() {
   const [accumulatedTime, setAccumulatedTime] = useState(0);
   const [breakTaken, setBreakTaken] = useState(false);
   const [note, setNote] = useState("");
-  const [image, setImage] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
 
+  // Initialize clock state from backend on page load
   useEffect(() => {
-    const savedStatus = localStorage.getItem("clockStatus");
-    const savedStartTime = localStorage.getItem("clockStartTime");
-    const savedBreakStartTime = localStorage.getItem("breakStartTime");
-    const savedAccumulatedTime = localStorage.getItem("accumulatedTime");
-    const savedBreakTaken = localStorage.getItem("breakTaken") === "true";
-    const user = JSON.parse(localStorage.getItem("currentUser") || "null");
+    const initializeClock = async () => {
+      try {
+        const response = await api.attendance.getStatus();
+        const { status: currentStatus, data } = response;
 
-    if (savedStatus) setStatus(savedStatus);
-    if (savedStartTime) setStartTime(Number.parseInt(savedStartTime));
-    if (savedBreakStartTime)
-      setBreakStartTime(Number.parseInt(savedBreakStartTime));
-    if (savedAccumulatedTime)
-      setAccumulatedTime(Number.parseInt(savedAccumulatedTime));
-    setBreakTaken(savedBreakTaken);
-    setCurrentUser(user);
+        if (currentStatus === "clocked-out" || !data) {
+          // User not clocked in
+          setStatus("clocked-out");
+          setStartTime(null);
+          setBreakStartTime(null);
+          setAccumulatedTime(0);
+          setBreakTaken(false);
+        } else if (currentStatus === "clocked-in") {
+          // User is working
+          setStatus("clocked-in");
+          setStartTime(new Date(data.clockIn).getTime());
+          setBreakTaken(data.breakTaken || false);
+          // Account for any previous break time - use duration from backend
+          if (data.duration > 0) {
+            // Adjust start time so timer shows correct elapsed time
+            const now = Date.now();
+            setStartTime(now - data.duration);
+          }
+        } else if (currentStatus === "on-break") {
+          // User is on break
+          setStatus("on-break");
+          setStartTime(new Date(data.clockIn).getTime());
+          setBreakStartTime(new Date(data.breakIn).getTime());
+          // Store work time before break
+          setAccumulatedTime(data.duration || 0);
+          setBreakTaken(false); // Will be true after break ends
+        }
+      } catch (error) {
+        console.error("Failed to initialize clock:", error);
+        toast.error("Failed to load clock status");
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    initializeClock();
   }, []);
 
   const handleClockIn = async () => {
     setIsLoading(true);
+    try {
+      const response = await api.attendance.clockIn({ notes: note });
+      const { data } = response;
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800));
+      setStatus("clocked-in");
+      setStartTime(new Date(data.clockIn).getTime());
+      setAccumulatedTime(0);
+      setBreakTaken(false);
+      setNote("");
 
-    const now = Date.now();
-    setStatus("clocked-in");
-    setStartTime(now);
-    setAccumulatedTime(0);
-    setBreakTaken(false);
-    localStorage.setItem("clockStatus", "clocked-in");
-    localStorage.setItem("clockStartTime", now);
-    localStorage.setItem("accumulatedTime", "0");
-    localStorage.setItem("breakTaken", "false");
-
-    const timesheet = JSON.parse(localStorage.getItem("timesheet") || "[]");
-    timesheet.push({
-      id: Date.now(),
-      date: new Date().toISOString(),
-      clockIn: now,
-      note,
-      image,
-      userId: currentUser?.id || null,
-      userName: currentUser?.name || "Unknown",
-    });
-    localStorage.setItem("timesheet", JSON.stringify(timesheet));
-
-    setIsLoading(false);
+      toast.success("Clocked in successfully");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClockOut = async () => {
     setIsLoading(true);
+    try {
+      const response = await api.attendance.clockOut({ notes: note });
+      const { data } = response;
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 800));
+      setStatus("clocked-out");
+      setStartTime(null);
+      setBreakStartTime(null);
+      setAccumulatedTime(0);
+      setBreakTaken(false);
+      setNote("");
 
-    const timesheet = JSON.parse(localStorage.getItem("timesheet") || "[]");
-    const currentUserId = currentUser?.id;
-
-    const lastEntryIndex = timesheet.findLastIndex(
-      (entry) => entry.userId === currentUserId && !entry.clockOut
-    );
-
-    if (lastEntryIndex !== -1) {
-      timesheet[lastEntryIndex].clockOut = Date.now();
-      localStorage.setItem("timesheet", JSON.stringify(timesheet));
+      toast.success(`Clocked out! Total work time: ${data.durationFormatted}`);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
     }
-
-    setStatus("clocked-out");
-    setStartTime(null);
-    setBreakStartTime(null);
-    setAccumulatedTime(0);
-    setBreakTaken(false);
-    localStorage.setItem("clockStatus", "clocked-out");
-    localStorage.removeItem("clockStartTime");
-    localStorage.removeItem("breakStartTime");
-    localStorage.removeItem("accumulatedTime");
-    localStorage.removeItem("breakTaken");
-    setNote("");
-    setImage(null);
-
-    setIsLoading(false);
   };
 
   const handleStartBreak = async () => {
     setIsLoading(true);
+    try {
+      const response = await api.attendance.breakIn();
+      const { data } = response;
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 600));
+      setStatus("on-break");
+      setBreakStartTime(new Date(data.breakIn).getTime());
+      // Store current work time from backend
+      setAccumulatedTime(data.workTimeBeforeBreak || 0);
 
-    const now = Date.now();
-    const timeWorked = now - startTime;
-    setAccumulatedTime(timeWorked);
-    setStatus("on-break");
-    setBreakStartTime(now);
-    setBreakTaken(true);
-    localStorage.setItem("clockStatus", "on-break");
-    localStorage.setItem("breakStartTime", now);
-    localStorage.setItem("accumulatedTime", timeWorked.toString());
-    localStorage.setItem("breakTaken", "true");
-
-    setIsLoading(false);
+      toast.success("Break started");
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEndBreak = async () => {
     setIsLoading(true);
+    try {
+      const response = await api.attendance.breakOut();
+      const { data } = response;
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 600));
+      setStatus("clocked-in");
+      setBreakStartTime(null);
+      setBreakTaken(true);
+      // Adjust start time to continue from accumulated time
+      const now = Date.now();
+      setStartTime(now - accumulatedTime);
 
-    const now = Date.now();
-    const adjustedStartTime = now - accumulatedTime;
-    setStartTime(adjustedStartTime);
-    setStatus("clocked-in");
-    setBreakStartTime(null);
-    localStorage.setItem("clockStatus", "clocked-in");
-    localStorage.setItem("clockStartTime", adjustedStartTime.toString());
-    localStorage.removeItem("breakStartTime");
-
-    setIsLoading(false);
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result);
-      };
-      reader.readAsDataURL(file);
+      toast.success(`Break ended. Break duration: ${data.breakDurationFormatted}`);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -169,12 +165,35 @@ export default function Clock() {
 
   const currentStatus = statusConfig[status];
 
+  if (initialLoading) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="glass-card p-8 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-white/50">
+            <Spinner />
+            <span>Loading clock status...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
+      {/* Current Time Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-6 sm:p-8 mb-6"
+      >
+        <LiveClock showDate={true} />
+      </motion.div>
+
       {/* Status Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
         className="glass-card p-6 sm:p-8 mb-6"
       >
         {/* Status indicator */}
@@ -183,9 +202,11 @@ export default function Clock() {
             <div
               className={`relative w-4 h-4 rounded-full ${currentStatus.color}`}
             >
-              <div
-                className={`absolute inset-0 rounded-full ${currentStatus.color} animate-ping opacity-75`}
-              />
+              {status !== "clocked-out" && (
+                <div
+                  className={`absolute inset-0 rounded-full ${currentStatus.color} animate-ping opacity-75`}
+                />
+              )}
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
@@ -378,19 +399,18 @@ export default function Clock() {
         </div>
       </motion.div>
 
-      {/* Note & Image Section */}
+      {/* Note Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.2 }}
         className="glass-card p-6"
       >
         <h3 className="text-sm font-semibold text-white/50 uppercase tracking-wider mb-4">
-          Entry Details (Optional)
+          Entry Note (Optional)
         </h3>
 
         <div className="space-y-4">
-          {/* Note */}
           <div>
             <label className="input-label">Note</label>
             <input
@@ -450,42 +470,6 @@ function PauseIcon({ className }) {
   return (
     <svg className={className} fill="currentColor" viewBox="0 0 24 24">
       <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-    </svg>
-  );
-}
-
-function UploadIcon({ className }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-      />
-    </svg>
-  );
-}
-
-function XIcon({ className }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 18L18 6M6 6l12 12"
-      />
     </svg>
   );
 }

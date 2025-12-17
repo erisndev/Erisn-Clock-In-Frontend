@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import useScrollLock from "../../hooks/useScrollLock";
+import api from "../../services/Api";
+import toast from "react-hot-toast";
 
 // Helper functions for week calculations
 function getWeekDates(date) {
@@ -27,10 +29,8 @@ function getWeekLabel(monday, friday) {
 
 function getDefaultWeek() {
   const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 5 = Friday
+  const dayOfWeek = today.getDay();
   
-  // If it's Friday (5), Saturday (6), or Sunday (0), show current week
-  // Otherwise show last week
   if (dayOfWeek >= 5 || dayOfWeek === 0) {
     return getWeekDates(today);
   } else {
@@ -44,7 +44,6 @@ function generateWeekOptions() {
   const weeks = [];
   const today = new Date();
   
-  // Generate last 12 weeks
   for (let i = 0; i < 12; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() - (i * 7));
@@ -62,89 +61,154 @@ function generateWeekOptions() {
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [viewReport, setViewReport] = useState(null);
   const [feedbackReport, setFeedbackReport] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const { monday } = getDefaultWeek();
     return formatDate(monday);
   });
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Lock scroll when any modal is open
   useScrollLock(!!viewReport || !!feedbackReport);
 
   const weekOptions = useMemo(() => generateWeekOptions(), []);
 
-  useEffect(() => {
-    const storedReports = JSON.parse(localStorage.getItem("reports") || "[]");
-    setReports(storedReports);
-  }, []);
+  // Load reports from API
+  const loadReports = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      
+      // Add status filter
+      if (statusFilter !== "all") {
+        params.status = statusFilter;
+      }
+      
+      // Add week filter
+      if (selectedWeek !== "all") {
+        const weekOption = weekOptions.find((w) => w.value === selectedWeek);
+        if (weekOption) {
+          params.startDate = formatDate(weekOption.monday);
+          params.endDate = formatDate(weekOption.friday);
+        }
+      }
+      
+      const response = await api.admin.getReports(params);
+      // Handle both { data: [...] } and direct array response
+      const reportsArray = Array.isArray(response?.data) 
+        ? response.data 
+        : Array.isArray(response) 
+          ? response 
+          : [];
+      setReports(reportsArray);
+      console.log("Admin reports loaded:", reportsArray);
+    } catch (error) {
+      console.error("Failed to load reports:", error);
+      toast.error("Failed to load reports");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Filter reports by selected week and search query
+  useEffect(() => {
+    loadReports();
+  }, [statusFilter, selectedWeek]);
+
+  // Filter reports by search query
   const filteredReports = useMemo(() => {
     let filtered = reports;
 
-    // Filter by week
-    if (selectedWeek !== "all") {
-      const weekOption = weekOptions.find((w) => w.value === selectedWeek);
-      if (weekOption) {
-        filtered = filtered.filter((report) => {
-          // Check if report's week overlaps with selected week
-          const reportStart = new Date(report.weekStart);
-          const reportEnd = new Date(report.weekEnd);
-          
-          return (
-            (reportStart >= weekOption.monday && reportStart <= weekOption.friday) ||
-            (reportEnd >= weekOption.monday && reportEnd <= weekOption.friday) ||
-            (reportStart <= weekOption.monday && reportEnd >= weekOption.friday)
-          );
-        });
-      }
-    }
-
-    // Filter by search query (graduate name)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter((report) => {
-        const userName = (report.userName || "").toLowerCase();
-        return userName.includes(query);
+        const userName = (report.userId?.name || "").toLowerCase();
+        const userEmail = (report.userId?.email || "").toLowerCase();
+        return userName.includes(query) || userEmail.includes(query);
       });
     }
 
     return filtered;
-  }, [reports, selectedWeek, weekOptions, searchQuery]);
+  }, [reports, searchQuery]);
 
   const handleOpenFeedback = (report) => {
     setFeedbackReport(report);
-    setFeedback(report.adminComment || "");
+    setFeedback(report.reviewComment || "");
   };
 
-  const handleSubmitFeedback = () => {
-    const updatedReports = reports.map((report) => {
-      if (report.id === feedbackReport.id) {
-        return {
-          ...report,
-          adminComment: feedback,
-          feedbackAt: new Date().toISOString(),
-        };
-      }
-      return report;
-    });
+  const handleApprove = async (reportId) => {
+    setActionLoading(true);
+    try {
+      await api.admin.approveReport(reportId, { reviewComment: feedback || undefined });
+      toast.success("Report approved");
+      loadReports();
+      setFeedbackReport(null);
+      setFeedback("");
+    } catch (error) {
+      toast.error(error.message || "Failed to approve report");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
-    localStorage.setItem("reports", JSON.stringify(updatedReports));
-    setReports(updatedReports);
-    setFeedbackReport(null);
-    setFeedback("");
+  const handleReject = async (reportId) => {
+    if (!feedback.trim()) {
+      toast.error("Please provide a reason for rejection");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.admin.rejectReport(reportId, { reviewComment: feedback });
+      toast.success("Report rejected");
+      loadReports();
+      setFeedbackReport(null);
+      setFeedback("");
+    } catch (error) {
+      toast.error(error.message || "Failed to reject report");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleMarkReviewed = async (reportId) => {
+    setActionLoading(true);
+    try {
+      await api.admin.markReportReviewed(reportId, { reviewComment: feedback || undefined });
+      toast.success("Report marked as reviewed");
+      loadReports();
+      setFeedbackReport(null);
+      setFeedback("");
+    } catch (error) {
+      toast.error(error.message || "Failed to mark report as reviewed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      Draft: "bg-gray-500/20 text-gray-400",
+      Submitted: "bg-blue-500/20 text-blue-400",
+      Reviewed: "bg-yellow-500/20 text-yellow-400",
+      Approved: "bg-emerald-500/20 text-emerald-400",
+      Rejected: "bg-red-500/20 text-red-400",
+    };
+    return colors[status] || "bg-gray-500/20 text-gray-400";
   };
 
   const currentWeekLabel = weekOptions.find((w) => w.value === selectedWeek)?.label || "All Weeks";
 
-  // Get unique graduate names for display
-  const uniqueGraduates = useMemo(() => {
-    const names = new Set(reports.map((r) => r.userName).filter(Boolean));
-    return Array.from(names);
-  }, [reports]);
+  // Stats
+  const stats = useMemo(() => ({
+    total: reports.length,
+    submitted: reports.filter(r => r.status === "Submitted").length,
+    reviewed: reports.filter(r => r.status === "Reviewed").length,
+    approved: reports.filter(r => r.status === "Approved").length,
+    rejected: reports.filter(r => r.status === "Rejected").length,
+  }), [reports]);
 
   return (
     <>
@@ -158,15 +222,14 @@ export default function AdminReportsPage() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h1 className="page-title">Weekly Reports</h1>
-              <p className="page-subtitle mt-1">View graduate weekly reports and share feedback</p>
+              <p className="page-subtitle mt-1">Review and manage graduate weekly reports</p>
             </div>
           </div>
 
           {/* Filters */}
           <div className="flex flex-col gap-4">
-            {/* Search and Week Filter Row */}
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Search by Graduate */}
+              {/* Search */}
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/10 flex-1 sm:max-w-xs">
                 <SearchIcon className="w-4 h-4 text-white/40" />
                 <input
@@ -184,6 +247,22 @@ export default function AdminReportsPage() {
                     <XIcon className="w-3.5 h-3.5 text-white/40" />
                   </button>
                 )}
+              </div>
+
+              {/* Status Filter */}
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer min-w-[140px]"
+                >
+                  <option value="all" className="bg-[#1a1a1a]">All Status</option>
+                  <option value="Submitted" className="bg-[#1a1a1a]">Submitted</option>
+                  <option value="Reviewed" className="bg-[#1a1a1a]">Reviewed</option>
+                  <option value="Approved" className="bg-[#1a1a1a]">Approved</option>
+                  <option value="Rejected" className="bg-[#1a1a1a]">Rejected</option>
+                </select>
+                <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
 
               {/* Week Filter */}
@@ -214,93 +293,53 @@ export default function AdminReportsPage() {
                 </div>
               </div>
             </div>
-
-            {/* Active Filters Display */}
-            {(searchQuery || selectedWeek !== "all") && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-white/40">Active filters:</span>
-                {searchQuery && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium">
-                    Graduate: "{searchQuery}"
-                    <button onClick={() => setSearchQuery("")} className="hover:text-blue-300">
-                      <XIcon className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-                {selectedWeek !== "all" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-medium">
-                    Week: {currentWeekLabel}
-                    <button onClick={() => setSelectedWeek("all")} className="hover:text-purple-300">
-                      <XIcon className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedWeek("all");
-                  }}
-                  className="text-xs text-white/40 hover:text-white/60 underline"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Stats */}
-          <div className="flex flex-wrap gap-4">
-            <div className="glass-card px-5 py-3">
-              <p className="text-sm text-white/50">Showing</p>
-              <p className="text-2xl font-bold text-white">{filteredReports.length}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="glass-card px-4 py-3">
+              <p className="text-xs text-white/50">Total</p>
+              <p className="text-xl font-bold text-white">{stats.total}</p>
             </div>
-            <div className="glass-card px-5 py-3">
-              <p className="text-sm text-white/50">Total Reports</p>
-              <p className="text-2xl font-bold text-white/60">{reports.length}</p>
+            <div className="glass-card px-4 py-3">
+              <p className="text-xs text-white/50">Submitted</p>
+              <p className="text-xl font-bold text-blue-400">{stats.submitted}</p>
             </div>
-            <div className="glass-card px-5 py-3">
-              <p className="text-sm text-white/50">With Feedback</p>
-              <p className="text-2xl font-bold text-emerald-400">
-                {filteredReports.filter((r) => r.adminComment).length}
-              </p>
+            <div className="glass-card px-4 py-3">
+              <p className="text-xs text-white/50">Reviewed</p>
+              <p className="text-xl font-bold text-yellow-400">{stats.reviewed}</p>
             </div>
-            <div className="glass-card px-5 py-3">
-              <p className="text-sm text-white/50">Awaiting Feedback</p>
-              <p className="text-2xl font-bold text-amber-400">
-                {filteredReports.filter((r) => !r.adminComment).length}
-              </p>
+            <div className="glass-card px-4 py-3">
+              <p className="text-xs text-white/50">Approved</p>
+              <p className="text-xl font-bold text-emerald-400">{stats.approved}</p>
+            </div>
+            <div className="glass-card px-4 py-3">
+              <p className="text-xs text-white/50">Rejected</p>
+              <p className="text-xl font-bold text-red-400">{stats.rejected}</p>
             </div>
           </div>
 
           {/* Reports Grid */}
-          {filteredReports.length === 0 ? (
+          {loading ? (
+            <div className="glass-card p-12 text-center">
+              <Spinner className="w-8 h-8 mx-auto mb-4" />
+              <p className="text-white/50">Loading reports...</p>
+            </div>
+          ) : filteredReports.length === 0 ? (
             <div className="glass-card p-12 text-center">
               <InboxIcon className="w-12 h-12 mx-auto mb-4 text-white/20" />
               <h3 className="text-lg font-semibold text-white mb-2">No reports found</h3>
               <p className="text-white/50">
                 {searchQuery
                   ? `No reports found for "${searchQuery}"`
-                  : selectedWeek === "all"
-                  ? "No reports have been submitted yet"
-                  : `No reports for ${currentWeekLabel}`}
+                  : "No reports match the current filters"}
               </p>
-              {(searchQuery || selectedWeek !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedWeek("all");
-                  }}
-                  className="mt-4 text-sm text-brand-red hover:underline"
-                >
-                  Clear filters
-                </button>
-              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredReports.map((report, index) => (
                 <motion.div
-                  key={report.id}
+                  key={report._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.03 }}
@@ -309,21 +348,15 @@ export default function AdminReportsPage() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-semibold text-white">
-                        {report.userName || "Graduate"}
+                        {report.userId?.name || "Graduate"}
                       </h3>
                       <p className="text-sm text-white/50">
-                        {report.weekStart} - {report.weekEnd}
+                        {new Date(report.weekStart).toLocaleDateString()} - {new Date(report.weekEnd).toLocaleDateString()}
                       </p>
                     </div>
-                    {report.adminComment ? (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
-                        Feedback Sent
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
-                        New
-                      </span>
-                    )}
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                      {report.status}
+                    </span>
                   </div>
 
                   <p className="text-sm text-white/60 line-clamp-3 mb-4">
@@ -331,7 +364,7 @@ export default function AdminReportsPage() {
                   </p>
 
                   <p className="text-xs text-white/40 mb-4">
-                    Submitted {new Date(report.submittedAt).toLocaleDateString()}
+                    Submitted {new Date(report.createdAt).toLocaleDateString()}
                   </p>
 
                   <div className="flex gap-2">
@@ -339,20 +372,22 @@ export default function AdminReportsPage() {
                       onClick={() => setViewReport(report)}
                       className="flex-1 py-2 rounded-lg bg-blue-500/10 text-blue-400 text-sm font-medium hover:bg-blue-500/20 transition-colors"
                     >
-                      View Details
+                      View
                     </button>
-                    <button
-                      onClick={() => handleOpenFeedback(report)}
-                      className="flex-1 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-sm font-medium hover:bg-emerald-500/20 transition-colors"
-                    >
-                      {report.adminComment ? "Edit Feedback" : "Add Feedback"}
-                    </button>
+                    {report.status === "Submitted" && (
+                      <button
+                        onClick={() => handleOpenFeedback(report)}
+                        className="flex-1 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-sm font-medium hover:bg-emerald-500/20 transition-colors"
+                      >
+                        Review
+                      </button>
+                    )}
                   </div>
 
-                  {report.adminComment && (
+                  {report.reviewComment && (
                     <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                      <p className="text-xs text-white/50 mb-1">Your feedback:</p>
-                      <p className="text-sm text-white/70 line-clamp-2">{report.adminComment}</p>
+                      <p className="text-xs text-white/50 mb-1">Feedback:</p>
+                      <p className="text-sm text-white/70 line-clamp-2">{report.reviewComment}</p>
                     </div>
                   )}
                 </motion.div>
@@ -381,25 +416,30 @@ export default function AdminReportsPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-bold text-white">{viewReport.userName}'s Weekly Report</h2>
-                  <p className="text-sm text-white/50">{viewReport.weekStart} - {viewReport.weekEnd}</p>
+                  <h2 className="text-xl font-bold text-white">{viewReport.userId?.name}'s Report</h2>
+                  <p className="text-sm text-white/50">
+                    {new Date(viewReport.weekStart).toLocaleDateString()} - {new Date(viewReport.weekEnd).toLocaleDateString()}
+                  </p>
                 </div>
-                <button
-                  onClick={() => setViewReport(null)}
-                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <XIcon className="w-5 h-5 text-white/60" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(viewReport.status)}`}>
+                    {viewReport.status}
+                  </span>
+                  <button
+                    onClick={() => setViewReport(null)}
+                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                    <XIcon className="w-5 h-5 text-white/60" />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-5">
-                {/* Summary */}
                 <div>
                   <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Summary</h3>
                   <p className="text-white/90">{viewReport.summary}</p>
                 </div>
 
-                {/* Challenges */}
                 {viewReport.challenges && (
                   <div>
                     <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Challenges</h3>
@@ -407,7 +447,6 @@ export default function AdminReportsPage() {
                   </div>
                 )}
 
-                {/* Learnings */}
                 {viewReport.learnings && (
                   <div>
                     <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Key Learnings</h3>
@@ -415,7 +454,6 @@ export default function AdminReportsPage() {
                   </div>
                 )}
 
-                {/* Next Week */}
                 {viewReport.nextWeek && (
                   <div>
                     <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Plans for Next Week</h3>
@@ -423,7 +461,6 @@ export default function AdminReportsPage() {
                   </div>
                 )}
 
-                {/* Goals */}
                 {viewReport.goals && (
                   <div>
                     <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Goals</h3>
@@ -431,11 +468,10 @@ export default function AdminReportsPage() {
                   </div>
                 )}
 
-                {/* Admin Comment */}
-                {viewReport.adminComment && (
+                {viewReport.reviewComment && (
                   <div className="pt-4 border-t border-white/10">
-                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Your Feedback</h3>
-                    <p className="text-white/90">{viewReport.adminComment}</p>
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Admin Feedback</h3>
+                    <p className="text-white/90">{viewReport.reviewComment}</p>
                   </div>
                 )}
               </div>
@@ -447,22 +483,24 @@ export default function AdminReportsPage() {
                 >
                   Close
                 </button>
-                <button
-                  onClick={() => {
-                    handleOpenFeedback(viewReport);
-                    setViewReport(null);
-                  }}
-                  className="flex-1 py-3 rounded-xl font-semibold text-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all duration-200"
-                >
-                  {viewReport.adminComment ? "Edit Feedback" : "Add Feedback"}
-                </button>
+                {viewReport.status === "Submitted" && (
+                  <button
+                    onClick={() => {
+                      handleOpenFeedback(viewReport);
+                      setViewReport(null);
+                    }}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all duration-200"
+                  >
+                    Review Report
+                  </button>
+                )}
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Feedback Modal */}
+      {/* Review Modal */}
       <AnimatePresence>
         {feedbackReport && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -480,36 +518,52 @@ export default function AdminReportsPage() {
               className="relative w-full max-w-md glass-card p-6"
             >
               <h2 className="text-xl font-bold text-white mb-2">
-                Share Feedback
+                Review Report
               </h2>
               <p className="text-white/50 text-sm mb-6">
-                Provide feedback for {feedbackReport.userName}'s weekly report
+                Review {feedbackReport.userId?.name}'s weekly report
               </p>
 
               <textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Enter your feedback for the graduate..."
-                rows={5}
+                placeholder="Add feedback (required for rejection)..."
+                rows={4}
                 className="input-field resize-none mb-6"
               />
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleApprove(feedbackReport._id)}
+                    disabled={actionLoading}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all duration-200 disabled:opacity-50"
+                  >
+                    {actionLoading ? "Processing..." : "Approve"}
+                  </button>
+                  <button
+                    onClick={() => handleReject(feedbackReport._id)}
+                    disabled={actionLoading || !feedback.trim()}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm bg-red-500 text-white hover:bg-red-600 transition-all duration-200 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+                <button
+                  onClick={() => handleMarkReviewed(feedbackReport._id)}
+                  disabled={actionLoading}
+                  className="w-full py-3 rounded-xl font-semibold text-sm bg-amber-500 text-white hover:bg-amber-600 transition-all duration-200 disabled:opacity-50"
+                >
+                  Mark as Reviewed
+                </button>
                 <button
                   onClick={() => {
                     setFeedbackReport(null);
                     setFeedback("");
                   }}
-                  className="btn-secondary flex-1"
+                  className="btn-secondary w-full"
                 >
                   Cancel
-                </button>
-                <button
-                  onClick={handleSubmitFeedback}
-                  disabled={!feedback.trim()}
-                  className="flex-1 py-3 rounded-xl font-semibold text-sm bg-emerald-500 text-white hover:bg-emerald-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Submit Feedback
                 </button>
               </div>
             </motion.div>
@@ -517,6 +571,28 @@ export default function AdminReportsPage() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+// Spinner Component
+function Spinner({ className }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24">
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
   );
 }
 

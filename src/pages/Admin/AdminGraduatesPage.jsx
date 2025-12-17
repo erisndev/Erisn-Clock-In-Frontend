@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
+import api from "../../services/Api";
+import toast from "react-hot-toast";
 
 const DEPARTMENTS = [
   "Software Development",
@@ -16,38 +18,48 @@ const DEPARTMENTS = [
 
 export default function AdminGraduatesPage() {
   const [graduates, setGraduates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("All Departments");
   const navigate = useNavigate();
 
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const grads = users.filter((u) => u.role === "graduate");
-    setGraduates(grads);
+    const loadGraduates = async () => {
+      try {
+        // Try the graduates endpoint first, fall back to users endpoint
+        let grads = [];
+        try {
+          const response = await api.admin.getGraduates();
+          grads = Array.isArray(response) ? response : (response.data || []);
+        } catch {
+          // Fall back to getUsers with role filter
+          const response = await api.admin.getUsers({ role: "graduate" });
+          grads = response.data || [];
+        }
+        setGraduates(grads);
+      } catch (error) {
+        console.error("Failed to load graduates:", error);
+        toast.error("Failed to load graduates");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadGraduates();
   }, []);
 
-  const filteredGraduates = graduates.filter((g) => {
-    const matchesSearch =
-      g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      g.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment =
-      selectedDepartment === "All Departments" || g.department === selectedDepartment;
-    return matchesSearch && matchesDepartment;
-  });
+  const filteredGraduates = useMemo(() => {
+    return graduates.filter((g) => {
+      const matchesSearch =
+        (g.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (g.email || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDepartment =
+        selectedDepartment === "All Departments" || g.department === selectedDepartment;
+      return matchesSearch && matchesDepartment;
+    });
+  }, [graduates, searchQuery, selectedDepartment]);
 
   const handleGraduateClick = (graduate) => {
-    navigate(`/admin/graduates/${graduate.id}`);
-  };
-
-  // Get timesheet stats for each graduate
-  const getGraduateStats = (graduateId) => {
-    const timesheet = JSON.parse(localStorage.getItem("timesheet") || "[]");
-    const entries = timesheet.filter((e) => e.userId === graduateId);
-    const totalHours = entries.reduce((acc, entry) => {
-      if (entry.clockOut) return acc + (entry.clockOut - entry.clockIn);
-      return acc;
-    }, 0) / 3600000;
-    return { entries: entries.length, hours: totalHours.toFixed(1) };
+    navigate(`/admin/graduates/${graduate._id}`);
   };
 
   // Count graduates per department
@@ -146,13 +158,20 @@ export default function AdminGraduatesPage() {
             transition={{ delay: 0.15 }}
             className="stat-card"
           >
-            <span className="stat-label">Avg Hours/Week</span>
-            <span className="stat-value text-brand-red">38</span>
+            <span className="stat-label">Verified</span>
+            <span className="stat-value text-brand-red">
+              {graduates.filter(g => g.isEmailVerified).length}
+            </span>
           </motion.div>
         </div>
 
         {/* Graduates Grid */}
-        {filteredGraduates.length === 0 ? (
+        {loading ? (
+          <div className="glass-card p-12 text-center">
+            <Spinner className="w-8 h-8 mx-auto mb-4" />
+            <p className="text-white/50">Loading graduates...</p>
+          </div>
+        ) : filteredGraduates.length === 0 ? (
           <div className="glass-card p-12 text-center">
             <UsersIcon className="w-12 h-12 mx-auto mb-4 text-white/20" />
             <h3 className="text-lg font-semibold text-white mb-2">
@@ -168,51 +187,79 @@ export default function AdminGraduatesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredGraduates.map((graduate, index) => {
-              const stats = getGraduateStats(graduate.id);
-              return (
-                <motion.button
-                  key={graduate.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  onClick={() => handleGraduateClick(graduate)}
-                  className="glass-card-hover p-5 text-left group"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-bold text-lg">
-                        {graduate.name.charAt(0)}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
+            {filteredGraduates.map((graduate, index) => (
+              <motion.button
+                key={graduate._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
+                onClick={() => handleGraduateClick(graduate)}
+                className="glass-card-hover p-5 text-left group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-lg">
+                      {(graduate.name || "G").charAt(0)}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-white group-hover:text-brand-red transition-colors">
                         {graduate.name}
                       </h3>
-                      <p className="text-sm text-white/50 truncate">{graduate.email}</p>
-                      {graduate.department && (
-                        <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
-                          {graduate.department}
+                      {graduate.isEmailVerified && (
+                        <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
+                      )}
+                    </div>
+                    <p className="text-sm text-white/50 truncate">{graduate.email}</p>
+                    {graduate.department && (
+                      <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
+                        {graduate.department}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-3 mt-2">
+                      {graduate.province && (
+                        <span className="text-xs text-white/40">
+                          {graduate.province}
                         </span>
                       )}
-                      <div className="flex items-center gap-3 mt-2">
+                      {graduate.cellNumber && (
                         <span className="text-xs text-white/40">
-                          {stats.entries} entries
+                          {graduate.cellNumber}
                         </span>
-                        <span className="text-xs text-emerald-400">
-                          {stats.hours}h total
-                        </span>
-                      </div>
+                      )}
                     </div>
-                    <ChevronRightIcon className="w-5 h-5 text-white/20 group-hover:text-white/40 transition-colors" />
                   </div>
-                </motion.button>
-              );
-            })}
+                  <ChevronRightIcon className="w-5 h-5 text-white/20 group-hover:text-white/40 transition-colors" />
+                </div>
+              </motion.button>
+            ))}
           </div>
         )}
       </motion.div>
     </DashboardLayout>
+  );
+}
+
+// Spinner Component
+function Spinner({ className }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24">
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
   );
 }
 
@@ -245,6 +292,14 @@ function ChevronDownIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  );
+}
+
+function CheckCircleIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }

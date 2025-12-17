@@ -1,49 +1,54 @@
-"use client"
-
-import { useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { useNavigate } from "react-router-dom"
-import FileUpload from "../../components/FileUpload"
-import useScrollLock from "../../hooks/useScrollLock"
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import api from "../../services/Api";
+import toast from "react-hot-toast";
 
 export default function NewReport() {
-  const navigate = useNavigate()
-  const [reportType, setReportType] = useState("weekly")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
-  const [description, setDescription] = useState("")
-  const [files, setFiles] = useState([])
-  const [showModal, setShowModal] = useState(false)
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    weekStart: "",
+    weekEnd: "",
+    summary: "",
+    challenges: "",
+    learnings: "",
+    nextWeek: "",
+    goals: "",
+    status: "Submitted",
+  });
+  const [loading, setLoading] = useState(false);
 
-  // Lock scroll when modal is open
-  useScrollLock(showModal)
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-
-    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null")
-    const reports = JSON.parse(localStorage.getItem("reports") || "[]")
-    const newReport = {
-      id: Date.now(),
-      type: reportType,
-      startDate,
-      endDate,
-      description,
-      files,
-      submittedAt: new Date().toISOString(),
-      userId: currentUser?.id || null,
-      userName: currentUser?.name || "Unknown",
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.reports.submit(formData);
+      toast.success("Report submitted successfully");
+      navigate("/reports");
+    } catch (error) {
+      toast.error(error.message || "Failed to submit report");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    reports.push(newReport)
-    localStorage.setItem("reports", JSON.stringify(reports))
-
-    setShowModal(true)
-    setTimeout(() => {
-      setShowModal(false)
-      navigate("/reports")
-    }, 2000)
-  }
+  const handleSaveDraft = async () => {
+    const draftData = { ...formData, status: "Draft" };
+    setLoading(true);
+    try {
+      await api.reports.submit(draftData);
+      toast.success("Draft saved successfully");
+      navigate("/reports");
+    } catch (error) {
+      toast.error(error.message || "Failed to save draft");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -53,6 +58,15 @@ export default function NewReport() {
       className="container mx-auto px-4 py-8"
     >
       <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-white/10"
+          >
+            ← Back
+          </button>
+        </div>
         <motion.h1
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -67,111 +81,132 @@ export default function NewReport() {
           onSubmit={handleSubmit}
           className="bg-[#1A1A1A] rounded-xl p-8 shadow-2xl border border-white/10 space-y-6"
         >
-          {/* Report Type */}
-          <div>
-            <label className="block text-white font-semibold mb-3">Report Type</label>
-            <div className="grid grid-cols-3 gap-3">
-              {["weekly", "monthly", "custom"].map((type) => (
-                <motion.button
-                  key={type}
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setReportType(type)}
-                  className={`py-3 rounded-lg font-semibold transition-all ${
-                    reportType === type ? "bg-brand-red text-white" : "bg-black text-white/60 border border-white/20"
-                  }`}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-
           {/* Date Range */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-white font-semibold mb-2">Start Date</label>
+              <label className="block text-white font-semibold mb-2">
+                Week Start
+              </label>
               <input
                 type="date"
+                name="weekStart"
+                value={formData.weekStart}
+                onChange={handleChange}
                 required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
                 className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red"
               />
             </div>
             <div>
-              <label className="block text-white font-semibold mb-2">End Date</label>
+              <label className="block text-white font-semibold mb-2">
+                Week End
+              </label>
               <input
                 type="date"
+                name="weekEnd"
+                value={formData.weekEnd}
+                onChange={handleChange}
                 required
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
                 className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red"
               />
             </div>
           </div>
 
-          {/* Description */}
+          {/* Summary */}
           <div>
-            <label className="block text-white font-semibold mb-2">Description</label>
+            <label className="block text-white font-semibold mb-2">
+              Summary *
+            </label>
             <textarea
+              name="summary"
+              value={formData.summary}
+              onChange={handleChange}
               required
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              placeholder="Describe your report..."
+              rows={4}
+              placeholder="What did you accomplish this week?"
               className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red resize-none"
             />
           </div>
 
-          {/* File Upload */}
+          {/* Challenges */}
           <div>
-            <label className="block text-white font-semibold mb-2">Upload Files</label>
-            <FileUpload onFilesChange={setFiles} />
+            <label className="block text-white font-semibold mb-2">
+              Challenges
+            </label>
+            <textarea
+              name="challenges"
+              value={formData.challenges}
+              onChange={handleChange}
+              rows={3}
+              placeholder="What challenges did you face?"
+              className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red resize-none"
+            />
           </div>
 
-          {/* Submit Button */}
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-brand-red hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg"
-          >
-            Submit Report
-          </motion.button>
+          {/* Learnings */}
+          <div>
+            <label className="block text-white font-semibold mb-2">
+              Learnings
+            </label>
+            <textarea
+              name="learnings"
+              value={formData.learnings}
+              onChange={handleChange}
+              rows={3}
+              placeholder="What did you learn?"
+              className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red resize-none"
+            />
+          </div>
+
+          {/* Next Week */}
+          <div>
+            <label className="block text-white font-semibold mb-2">
+              Goals for Next Week
+            </label>
+            <textarea
+              name="nextWeek"
+              value={formData.nextWeek}
+              onChange={handleChange}
+              rows={3}
+              placeholder="What do you plan to accomplish next week?"
+              className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red resize-none"
+            />
+          </div>
+
+          {/* Goals */}
+          <div>
+            <label className="block text-white font-semibold mb-2">
+              Action Items / Targets
+            </label>
+            <textarea
+              name="goals"
+              value={formData.goals}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Specific targets or action items"
+              className="w-full bg-black border border-brand-red rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-red resize-none"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={loading}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 rounded-xl transition-all"
+            >
+              Save as Draft
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-brand-red hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-all"
+            >
+              Submit Report
+            </button>
+          </div>
         </motion.form>
       </div>
-
-      {/* Success Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-[#1A1A1A] border-2 border-brand-red rounded-xl p-8 max-w-md text-center"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring" }}
-                className="text-6xl mb-4"
-              >
-                ✓
-              </motion.div>
-              <h2 className="text-2xl font-bold text-white mb-2">Report Submitted!</h2>
-              <p className="text-white/60">Your report has been submitted successfully.</p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
-  )
+  );
 }

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
+import api from "../../services/Api";
+import toast from "react-hot-toast";
 
 // Helper function to get all weekdays (Mon-Fri) for a given month
 function getWeekdaysInMonth(year, month) {
@@ -21,43 +23,103 @@ function getWeekdaysInMonth(year, month) {
 
 export default function AdminGraduateDetailPage() {
   const { id } = useParams();
-  const graduateId = Number(id);
   const [graduate, setGraduate] = useState(null);
   const [timesheet, setTimesheet] = useState([]);
   const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const found = users.find((u) => u.id === graduateId);
-    setGraduate(found || null);
+    const loadGraduateData = async () => {
+      setLoading(true);
+      try {
+        // Get all graduates and find the one with matching ID
+        const graduatesRes = await api.admin.getUsers({ role: "graduate" });
+        const graduates = graduatesRes.data || [];
+        const found = graduates.find((u) => u._id === id);
+        
+        if (found) {
+          setGraduate(found);
+          
+          // Get attendance history for this user
+          try {
+            const attendanceRes = await api.attendance.getAll({ userId: id });
+            const attendanceArray = Array.isArray(attendanceRes?.data) 
+              ? attendanceRes.data 
+              : Array.isArray(attendanceRes) 
+                ? attendanceRes 
+                : [];
+            setTimesheet(attendanceArray);
+          } catch (err) {
+            console.error("Failed to load attendance:", err);
+            setTimesheet([]);
+          }
+          
+          // Get reports for this user
+          try {
+            const reportsRes = await api.admin.getReports({ userId: id });
+            // Handle both { data: [...] } and direct array response
+            const reportsArray = Array.isArray(reportsRes?.data) 
+              ? reportsRes.data 
+              : Array.isArray(reportsRes) 
+                ? reportsRes 
+                : [];
+            setReports(reportsArray);
+            console.log("Reports loaded for user:", reportsArray);
+          } catch (err) {
+            console.error("Failed to load reports:", err);
+            setReports([]);
+          }
+        } else {
+          setGraduate(null);
+        }
+      } catch (error) {
+        console.error("Failed to load graduate data:", error);
+        toast.error("Failed to load graduate data");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    if (found) {
-      const allTimesheet = JSON.parse(
-        localStorage.getItem("timesheet") || "[]"
-      );
-      const graduateTimesheet = allTimesheet.filter(
-        (entry) => entry.userId === graduateId
-      );
-      setTimesheet(graduateTimesheet);
-
-      const allReports = JSON.parse(localStorage.getItem("reports") || "[]");
-      const graduateReports = allReports.filter(
-        (report) => report.userId === graduateId
-      );
-      setReports(graduateReports);
+    if (id) {
+      loadGraduateData();
     }
-  }, [graduateId]);
+  }, [id]);
 
   const totalHours = useMemo(() => {
-    const ms = timesheet.reduce((acc, entry) => {
-      if (entry.clockOut) return acc + (entry.clockOut - entry.clockIn);
+    return timesheet.reduce((acc, entry) => {
+      // Handle duration as number (milliseconds)
+      if (typeof entry.duration === "number") {
+        return acc + entry.duration / (1000 * 60 * 60);
+      }
+      
+      // Handle duration as formatted string like "8h 30m"
+      if (typeof entry.duration === "string") {
+        const parts = entry.duration.split(" ");
+        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+        return acc + hours + minutes / 60;
+      }
+      
+      // Try durationFormatted
+      if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
+        const parts = entry.durationFormatted.split(" ");
+        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+        return acc + hours + minutes / 60;
+      }
+      
+      // Calculate from clockIn/clockOut
+      if (entry.clockOut && entry.clockIn) {
+        const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
+        return acc + ms / 3600000;
+      }
+      
       return acc;
     }, 0);
-    return ms / 3600000;
   }, [timesheet]);
 
   // Generate attendance data for all weekdays in selected month
@@ -70,7 +132,8 @@ export default function AdminGraduateDetailPage() {
     // Create a map of timesheet entries by date
     const timesheetByDate = {};
     timesheet.forEach((entry) => {
-      const dateKey = new Date(entry.date).toISOString().split("T")[0];
+      const clockInDate = new Date(entry.clockIn);
+      const dateKey = clockInDate.toISOString().split("T")[0];
       if (!timesheetByDate[dateKey]) {
         timesheetByDate[dateKey] = [];
       }
@@ -84,10 +147,16 @@ export default function AdminGraduateDetailPage() {
 
       if (entries.length > 0) {
         // Has clock-in entries
-        const totalMs = entries.reduce((acc, entry) => {
-          if (entry.clockOut) return acc + (entry.clockOut - entry.clockIn);
-          return acc;
-        }, 0);
+        let totalHours = 0;
+        entries.forEach((entry) => {
+          if (typeof entry.duration === "number") {
+            totalHours += entry.duration / (1000 * 60 * 60);
+          } else if (entry.clockOut && entry.clockIn) {
+            const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
+            totalHours += ms / 3600000;
+          }
+        });
+        
         const firstEntry = entries[0];
         const lastEntry = entries[entries.length - 1];
         
@@ -97,7 +166,7 @@ export default function AdminGraduateDetailPage() {
           status: lastEntry.clockOut ? "present" : "in-progress",
           clockIn: new Date(firstEntry.clockIn),
           clockOut: lastEntry.clockOut ? new Date(lastEntry.clockOut) : null,
-          hours: totalMs / 3600000,
+          hours: totalHours,
           entries,
         };
       } else if (isFuture) {
@@ -153,91 +222,53 @@ export default function AdminGraduateDetailPage() {
     return options;
   }, []);
 
-  const exportClockins = () => {
-    if (!graduate) return;
+  const [exportFormat, setExportFormat] = useState("pdf");
+  const [exporting, setExporting] = useState(false);
+
+  const exportClockins = async () => {
+    if (!graduate || !id) return;
 
     const [year, month] = selectedMonth.split("-").map(Number);
-    const monthName = new Date(year, month - 1).toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-
-    const rows = [];
-
-    // Header with graduate info
-    rows.push([`Name: ${graduate.name}`]);
-    rows.push([`Email: ${graduate.email}`]);
-    if (graduate.department) rows.push([`Department: ${graduate.department}`]);
-    rows.push([`Month: ${monthName}`]);
-    rows.push([]); // Empty row
-
-    // Column headers
-    rows.push(["Date", "Day", "Clock In", "Clock Out", "Hours", "Status"]);
-
-    // Data rows
-    attendanceData.forEach((day) => {
-      const dateFormatted = day.date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
+    
+    setExporting(true);
+    try {
+      const response = await api.attendance.exportUser(id, {
+        year: year.toString(),
+        month: month.toString(),
+        type: exportFormat
       });
-      const dayName = day.date.toLocaleDateString("en-US", { weekday: "short" });
       
-      let clockIn = "";
-      let clockOut = "";
-      let hours = "";
-      let status = "";
-
-      if (day.status === "present") {
-        clockIn = day.clockIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-        clockOut = day.clockOut ? day.clockOut.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
-        hours = day.hours.toFixed(2);
-        status = "Present";
-      } else if (day.status === "in-progress") {
-        clockIn = day.clockIn.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-        status = "In Progress";
-      } else if (day.status === "absent") {
-        status = "Absent";
-      } else {
-        status = "Upcoming";
-      }
-
-      rows.push([dateFormatted, dayName, clockIn, clockOut, hours, status]);
-    });
-
-    // Add summary
-    rows.push([]); // Empty row
-    rows.push(["Summary"]);
-    rows.push([`Present Days: ${monthStats.presentDays}`]);
-    rows.push([`Absent Days: ${monthStats.absentDays}`]);
-    rows.push([`Total Hours: ${monthStats.totalHoursMonth.toFixed(2)}`]);
-    rows.push([`Attendance Rate: ${monthStats.attendanceRate}%`]);
-
-    // Convert to CSV
-    const csvContent = rows
-      .map((row) =>
-        row
-          .map((cell) => {
-            const str = String(cell);
-            if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-              return `"${str.replace(/"/g, '""')}"`;
-            }
-            return str;
-          })
-          .join(",")
-      )
-      .join("\n");
-
-    // Download
-    const safeName = graduate.name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${safeName}_attendance_${selectedMonth}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = graduate.name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      a.download = `${safeName}_attendance_${selectedMonth}.${exportFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`Attendance exported as ${exportFormat.toUpperCase()}`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error(error.message || "Failed to export attendance");
+    } finally {
+      setExporting(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout role="admin">
+        <div className="glass-card p-12 text-center">
+          <Spinner className="w-8 h-8 mx-auto mb-4" />
+          <p className="text-white/60">Loading graduate data...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!graduate) {
     return (
@@ -267,7 +298,7 @@ export default function AdminGraduateDetailPage() {
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center shadow-lg shadow-brand-red/30">
               <span className="text-white font-bold text-2xl">
-                {graduate.name.charAt(0)}
+                {graduate.name?.charAt(0) || "G"}
               </span>
             </div>
             <div>
@@ -280,6 +311,11 @@ export default function AdminGraduateDetailPage() {
                 {graduate.department && (
                   <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
                     {graduate.department}
+                  </span>
+                )}
+                {graduate.province && (
+                  <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-purple-500/10 text-purple-400">
+                    {graduate.province}
                   </span>
                 )}
               </div>
@@ -367,12 +403,28 @@ export default function AdminGraduateDetailPage() {
                   </select>
                   <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                <div className="relative">
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="appearance-none px-3 py-2 pr-8 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
+                  >
+                    <option value="pdf" className="bg-[#1a1a1a]">PDF</option>
+                    <option value="csv" className="bg-[#1a1a1a]">CSV</option>
+                  </select>
+                  <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
                 <button
                   onClick={exportClockins}
-                  className="btn-primary text-sm py-2"
+                  disabled={exporting}
+                  className="btn-primary text-sm py-2 disabled:opacity-50"
                 >
-                  <ExportIcon className="w-4 h-4" />
-                  Export
+                  {exporting ? (
+                    <Spinner className="w-4 h-4" />
+                  ) : (
+                    <ExportIcon className="w-4 h-4" />
+                  )}
+                  {exporting ? "Exporting..." : "Export"}
                 </button>
               </div>
             </div>
@@ -464,7 +516,7 @@ export default function AdminGraduateDetailPage() {
               <h2 className="section-title">Weekly Reports</h2>
               {reports.length > 0 && (
                 <span className="text-xs text-white/40">
-                  Showing {Math.min(4, reports.length)} of {reports.length}
+                  {reports.length} report{reports.length !== 1 ? "s" : ""}
                 </span>
               )}
             </div>
@@ -475,34 +527,47 @@ export default function AdminGraduateDetailPage() {
                 <p>No reports submitted</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                 {[...reports]
-                  .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-                  .slice(0, 4)
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                   .map((report) => (
                   <div
-                    key={report.id}
+                    key={report._id}
                     className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-medium text-white capitalize text-sm">
                         Weekly Report
                       </h4>
-                      <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
-                        Submitted
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                        report.status === "Approved" 
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : report.status === "Rejected"
+                          ? "bg-red-500/10 text-red-400"
+                          : report.status === "Reviewed"
+                          ? "bg-yellow-500/10 text-yellow-400"
+                          : "bg-blue-500/10 text-blue-400"
+                      }`}>
+                        {report.status}
                       </span>
                     </div>
                     <p className="text-xs text-white/50 mb-2">
-                      {report.weekStart || report.startDate} - {report.weekEnd || report.endDate}
+                      {new Date(report.weekStart).toLocaleDateString()} - {new Date(report.weekEnd).toLocaleDateString()}
                     </p>
                     <p className="text-sm text-white/60 line-clamp-2">
-                      {report.summary || report.description}
+                      {report.summary}
                     </p>
-                    {report.adminComment && (
+                    {report.challenges && (
+                      <div className="mt-2">
+                        <p className="text-xs text-white/40 mb-1">Challenges:</p>
+                        <p className="text-xs text-white/60 line-clamp-2">{report.challenges}</p>
+                      </div>
+                    )}
+                    {report.reviewComment && (
                       <div className="mt-2 pt-2 border-t border-white/[0.06]">
                         <p className="text-xs text-emerald-400 font-medium mb-1">Feedback:</p>
                         <p className="text-xs text-white/60">
-                          {report.adminComment}
+                          {report.reviewComment}
                         </p>
                       </div>
                     )}
@@ -514,6 +579,28 @@ export default function AdminGraduateDetailPage() {
         </div>
       </motion.div>
     </DashboardLayout>
+  );
+}
+
+// Spinner Component
+function Spinner({ className }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24">
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
   );
 }
 
