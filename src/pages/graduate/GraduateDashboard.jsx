@@ -20,18 +20,18 @@ export default function GraduateDashboard() {
           api.attendance.getHistory({ limit: 5 }),
           api.reports.getMyReports(),
         ]);
-        
+
         // Set clock status from backend
         setClockStatus(statusResponse.status || "clocked-out");
-        
+
         // Ensure historyResponse.data is an array
-        const attendanceArray = Array.isArray(historyResponse?.data) 
-          ? historyResponse.data 
-          : Array.isArray(historyResponse) 
-            ? historyResponse 
+        const attendanceArray = Array.isArray(historyResponse?.data)
+          ? historyResponse.data
+          : Array.isArray(historyResponse)
+            ? historyResponse
             : [];
         setTimesheet(attendanceArray);
-        
+
         // Ensure reportsData.data is an array
         const reportsArray = Array.isArray(reportsData?.data) ? reportsData.data : [];
         setReports(reportsArray);
@@ -50,7 +50,7 @@ export default function GraduateDashboard() {
     if (typeof entry.duration === "number") {
       return acc + entry.duration / (1000 * 60 * 60);
     }
-    
+
     // Handle duration as formatted string like "8h 30m"
     if (typeof entry.duration === "string") {
       const parts = entry.duration.split(" ");
@@ -58,7 +58,7 @@ export default function GraduateDashboard() {
       const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
       return acc + hours + minutes / 60;
     }
-    
+
     // Try durationFormatted if duration is not usable
     if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
       const parts = entry.durationFormatted.split(" ");
@@ -66,14 +66,14 @@ export default function GraduateDashboard() {
       const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
       return acc + hours + minutes / 60;
     }
-    
+
     return acc;
   }, 0) : 0;
 
   const pendingReports = Array.isArray(reports) ? reports.filter(
     (r) => r.status === "Submitted" || r.status === "Reviewed"
   ).length : 0;
-  
+
   const approvedReports = Array.isArray(reports) ? reports.filter(
     (r) => r.status === "Approved"
   ).length : 0;
@@ -83,12 +83,12 @@ export default function GraduateDashboard() {
   // Helper function to format duration
   const formatDuration = (record) => {
     if (!record.clockOut) return "In Progress";
-    
+
     // Use durationFormatted if available (from backend)
     if (record.durationFormatted) {
       return record.durationFormatted;
     }
-    
+
     // If duration is a number (milliseconds), format it
     if (typeof record.duration === "number") {
       const totalSeconds = Math.floor(record.duration / 1000);
@@ -96,12 +96,12 @@ export default function GraduateDashboard() {
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       return `${hours}h ${minutes}m`;
     }
-    
+
     // If duration is already a string, return it
     if (typeof record.duration === "string") {
       return record.duration;
     }
-    
+
     return "0h 0m";
   };
 
@@ -114,8 +114,11 @@ export default function GraduateDashboard() {
   if (loading) {
     return (
       <DashboardLayout role="graduate">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-white/50">Loading dashboard...</div>
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+            <img src={Logo} alt="Logo" className="w-24 h-24 mb-4 animate-spin-slow" />
+            <p className="text-gray-600 text-lg">Loading dashboard...</p>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -134,7 +137,7 @@ export default function GraduateDashboard() {
               </p>
             </div>
           </div>
-          
+
           {/* Live Clock Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -278,9 +281,8 @@ export default function GraduateDashboard() {
                         </div>
                       </div>
                       <span
-                        className={`text-sm font-medium ${
-                          entry.clockOut ? "text-emerald-400" : "text-amber-400"
-                        }`}
+                        className={`text-sm font-medium ${entry.clockOut ? "text-emerald-400" : "text-amber-400"
+                          }`}
                       >
                         {formatDuration(entry)}
                       </span>
