@@ -1,0 +1,678 @@
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import api from "../../services/Api";
+import toast from "react-hot-toast";
+
+// Helper function to get all weekdays (Mon-Fri) for a given month
+function getWeekdaysInMonth(year, month) {
+  const weekdays = [];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    // 0 = Sunday, 6 = Saturday - skip weekends
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      weekdays.push(date);
+    }
+  }
+  return weekdays;
+}
+
+export default function AdminGraduateDetailPage() {
+  const { id } = useParams();
+  const [graduate, setGraduate] = useState(null);
+  const [timesheet, setTimesheet] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  useEffect(() => {
+    const loadGraduateData = async () => {
+      setLoading(true);
+      try {
+        // Get all graduates and find the one with matching ID
+        const graduatesRes = await api.admin.getUsers({ role: "graduate" });
+        const graduates = graduatesRes.data || [];
+        const found = graduates.find((u) => u._id === id);
+        
+        if (found) {
+          setGraduate(found);
+          
+          // Get attendance history for this user
+          try {
+            const attendanceRes = await api.attendance.getAll({ userId: id });
+            const attendanceArray = Array.isArray(attendanceRes?.data) 
+              ? attendanceRes.data 
+              : Array.isArray(attendanceRes) 
+                ? attendanceRes 
+                : [];
+            setTimesheet(attendanceArray);
+          } catch (err) {
+            console.error("Failed to load attendance:", err);
+            setTimesheet([]);
+          }
+          
+          // Get reports for this user
+          try {
+            const reportsRes = await api.admin.getReports({ userId: id });
+            // Handle both { data: [...] } and direct array response
+            const reportsArray = Array.isArray(reportsRes?.data) 
+              ? reportsRes.data 
+              : Array.isArray(reportsRes) 
+                ? reportsRes 
+                : [];
+            setReports(reportsArray);
+            console.log("Reports loaded for user:", reportsArray);
+          } catch (err) {
+            console.error("Failed to load reports:", err);
+            setReports([]);
+          }
+        } else {
+          setGraduate(null);
+        }
+      } catch (error) {
+        console.error("Failed to load graduate data:", error);
+        toast.error("Failed to load graduate data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      loadGraduateData();
+    }
+  }, [id]);
+
+  const totalHours = useMemo(() => {
+    return timesheet.reduce((acc, entry) => {
+      // Handle duration as number (milliseconds)
+      if (typeof entry.duration === "number") {
+        return acc + entry.duration / (1000 * 60 * 60);
+      }
+      
+      // Handle duration as formatted string like "8h 30m"
+      if (typeof entry.duration === "string") {
+        const parts = entry.duration.split(" ");
+        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+        return acc + hours + minutes / 60;
+      }
+      
+      // Try durationFormatted
+      if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
+        const parts = entry.durationFormatted.split(" ");
+        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+        return acc + hours + minutes / 60;
+      }
+      
+      // Calculate from clockIn/clockOut
+      if (entry.clockOut && entry.clockIn) {
+        const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
+        return acc + ms / 3600000;
+      }
+      
+      return acc;
+    }, 0);
+  }, [timesheet]);
+
+  // Generate attendance data for all weekdays in selected month
+  const attendanceData = useMemo(() => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    const weekdays = getWeekdaysInMonth(year, month - 1);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    // Create a map of timesheet entries by date
+    const timesheetByDate = {};
+    timesheet.forEach((entry) => {
+      const clockInDate = new Date(entry.clockIn);
+      const dateKey = clockInDate.toISOString().split("T")[0];
+      if (!timesheetByDate[dateKey]) {
+        timesheetByDate[dateKey] = [];
+      }
+      timesheetByDate[dateKey].push(entry);
+    });
+
+    return weekdays.map((date) => {
+      const dateKey = date.toISOString().split("T")[0];
+      const entries = timesheetByDate[dateKey] || [];
+      const isFuture = date > today;
+
+      if (entries.length > 0) {
+        // Has clock-in entries
+        let totalHours = 0;
+        entries.forEach((entry) => {
+          if (typeof entry.duration === "number") {
+            totalHours += entry.duration / (1000 * 60 * 60);
+          } else if (entry.clockOut && entry.clockIn) {
+            const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
+            totalHours += ms / 3600000;
+          }
+        });
+        
+        const firstEntry = entries[0];
+        const lastEntry = entries[entries.length - 1];
+        
+        return {
+          date,
+          dateKey,
+          status: lastEntry.clockOut ? "present" : "in-progress",
+          clockIn: new Date(firstEntry.clockIn),
+          clockOut: lastEntry.clockOut ? new Date(lastEntry.clockOut) : null,
+          hours: totalHours,
+          entries,
+        };
+      } else if (isFuture) {
+        return {
+          date,
+          dateKey,
+          status: "future",
+          clockIn: null,
+          clockOut: null,
+          hours: 0,
+          entries: [],
+        };
+      } else {
+        return {
+          date,
+          dateKey,
+          status: "absent",
+          clockIn: null,
+          clockOut: null,
+          hours: 0,
+          entries: [],
+        };
+      }
+    });
+  }, [timesheet, selectedMonth]);
+
+  // Calculate stats for selected month
+  const monthStats = useMemo(() => {
+    const presentDays = attendanceData.filter((d) => d.status === "present" || d.status === "in-progress").length;
+    const absentDays = attendanceData.filter((d) => d.status === "absent").length;
+    const totalWorkDays = attendanceData.filter((d) => d.status !== "future").length;
+    const totalHoursMonth = attendanceData.reduce((acc, d) => acc + d.hours, 0);
+    
+    return {
+      presentDays,
+      absentDays,
+      totalWorkDays,
+      totalHoursMonth,
+      attendanceRate: totalWorkDays > 0 ? ((presentDays / totalWorkDays) * 100).toFixed(0) : 0,
+    };
+  }, [attendanceData]);
+
+  // Generate month options (last 12 months)
+  const monthOptions = useMemo(() => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const label = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      options.push({ value, label });
+    }
+    return options;
+  }, []);
+
+  const [exportFormat, setExportFormat] = useState("pdf");
+  const [exporting, setExporting] = useState(false);
+
+  const exportClockins = async () => {
+    if (!graduate || !id) return;
+
+    const [year, month] = selectedMonth.split("-").map(Number);
+    
+    setExporting(true);
+    try {
+      const response = await api.attendance.exportUser(id, {
+        year: year.toString(),
+        month: month.toString(),
+        type: exportFormat
+      });
+      
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = graduate.name.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      a.download = `${safeName}_attendance_${selectedMonth}.${exportFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`Attendance exported as ${exportFormat.toUpperCase()}`);
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error(error.message || "Failed to export attendance");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout role="admin">
+        <div className="glass-card p-12 text-center">
+          <Spinner className="w-8 h-8 mx-auto mb-4" />
+          <p className="text-white/60">Loading graduate data...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!graduate) {
+    return (
+      <DashboardLayout role="admin">
+        <div className="glass-card p-12 text-center">
+          <p className="text-white/60">Graduate not found.</p>
+          <Link
+            to="/admin/graduates"
+            className="text-brand-red hover:underline text-sm mt-4 inline-block"
+          >
+            Back to graduates
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout role="admin">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-6"
+      >
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center shadow-lg shadow-brand-red/30">
+              <span className="text-white font-bold text-2xl">
+                {graduate.name?.charAt(0) || "G"}
+              </span>
+            </div>
+            <div>
+              <h1 className="page-title">{graduate.name}</h1>
+              <p className="text-white/50">{graduate.email}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                {graduate.cellNumber && (
+                  <span className="text-sm text-white/40">{graduate.cellNumber}</span>
+                )}
+                {graduate.department && (
+                  <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
+                    {graduate.department}
+                  </span>
+                )}
+                {graduate.province && (
+                  <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-purple-500/10 text-purple-400">
+                    {graduate.province}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <Link to="/admin/graduates" className="btn-secondary">
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="stat-card"
+          >
+            <span className="stat-label">Present Days</span>
+            <span className="stat-value text-emerald-400">{monthStats.presentDays}</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="stat-card"
+          >
+            <span className="stat-label">Absent Days</span>
+            <span className="stat-value text-red-400">{monthStats.absentDays}</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="stat-card"
+          >
+            <span className="stat-label">Month Hours</span>
+            <span className="stat-value text-brand-red">
+              {monthStats.totalHoursMonth.toFixed(1)}
+            </span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="stat-card"
+          >
+            <span className="stat-label">Attendance</span>
+            <span className="stat-value text-blue-400">{monthStats.attendanceRate}%</span>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="stat-card"
+          >
+            <span className="stat-label">Reports</span>
+            <span className="stat-value">{reports.length}</span>
+          </motion.div>
+        </div>
+
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Attendance History */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="lg:col-span-2 glass-card p-6"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <h2 className="section-title">Attendance History</h2>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="appearance-none px-4 py-2 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
+                  >
+                    {monthOptions.map((option) => (
+                      <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                <div className="relative">
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="appearance-none px-3 py-2 pr-8 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
+                  >
+                    <option value="pdf" className="bg-[#1a1a1a]">PDF</option>
+                    <option value="csv" className="bg-[#1a1a1a]">CSV</option>
+                  </select>
+                  <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                <button
+                  onClick={exportClockins}
+                  disabled={exporting}
+                  className="btn-primary text-sm py-2 disabled:opacity-50"
+                >
+                  {exporting ? (
+                    <Spinner className="w-4 h-4" />
+                  ) : (
+                    <ExportIcon className="w-4 h-4" />
+                  )}
+                  {exporting ? "Exporting..." : "Export"}
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="table-header">Date</th>
+                    <th className="table-header">Day</th>
+                    <th className="table-header">Clock In</th>
+                    <th className="table-header">Clock Out</th>
+                    <th className="table-header">Hours</th>
+                    <th className="table-header">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceData.map((day) => (
+                    <tr
+                      key={day.dateKey}
+                      className={`border-b border-white/[0.04] ${day.status === "absent" ? "bg-red-500/5" : ""}`}
+                    >
+                      <td className="table-cell font-medium text-white">
+                        {day.date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                      <td className="table-cell text-white/60">
+                        {day.date.toLocaleDateString("en-US", { weekday: "short" })}
+                      </td>
+                      <td className="table-cell">
+                        {day.clockIn
+                          ? day.clockIn.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : "-"}
+                      </td>
+                      <td className="table-cell">
+                        {day.clockOut
+                          ? day.clockOut.toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })
+                          : "-"}
+                      </td>
+                      <td className="table-cell">
+                        {day.hours > 0 ? day.hours.toFixed(2) : "-"}
+                      </td>
+                      <td className="table-cell">
+                        <span
+                          className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
+                            day.status === "present"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : day.status === "in-progress"
+                              ? "bg-amber-500/10 text-amber-400"
+                              : day.status === "absent"
+                              ? "bg-red-500/10 text-red-400"
+                              : "bg-white/10 text-white/40"
+                          }`}
+                        >
+                          {day.status === "present"
+                            ? "Present"
+                            : day.status === "in-progress"
+                            ? "In Progress"
+                            : day.status === "absent"
+                            ? "Absent"
+                            : "Upcoming"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+
+          {/* Reports */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="glass-card p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="section-title">Weekly Reports</h2>
+              {reports.length > 0 && (
+                <span className="text-xs text-white/40">
+                  {reports.length} report{reports.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {reports.length === 0 ? (
+              <div className="py-8 text-center text-white/40">
+                <DocumentIcon className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No reports submitted</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                {[...reports]
+                  .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                  .map((report) => (
+                  <div
+                    key={report._id}
+                    className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-medium text-white capitalize text-sm">
+                        Weekly Report
+                      </h4>
+                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                        report.status === "Approved" 
+                          ? "bg-emerald-500/10 text-emerald-400"
+                          : report.status === "Rejected"
+                          ? "bg-red-500/10 text-red-400"
+                          : report.status === "Reviewed"
+                          ? "bg-yellow-500/10 text-yellow-400"
+                          : "bg-blue-500/10 text-blue-400"
+                      }`}>
+                        {report.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/50 mb-2">
+                      {new Date(report.weekStart).toLocaleDateString()} - {new Date(report.weekEnd).toLocaleDateString()}
+                    </p>
+                    <p className="text-sm text-white/60 line-clamp-2">
+                      {report.summary}
+                    </p>
+                    {report.challenges && (
+                      <div className="mt-2">
+                        <p className="text-xs text-white/40 mb-1">Challenges:</p>
+                        <p className="text-xs text-white/60 line-clamp-2">{report.challenges}</p>
+                      </div>
+                    )}
+                    {report.reviewComment && (
+                      <div className="mt-2 pt-2 border-t border-white/[0.06]">
+                        <p className="text-xs text-emerald-400 font-medium mb-1">Feedback:</p>
+                        <p className="text-xs text-white/60">
+                          {report.reviewComment}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </motion.div>
+    </DashboardLayout>
+  );
+}
+
+// Spinner Component
+function Spinner({ className }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24">
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+        fill="none"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
+// Icons
+function ArrowLeftIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+      />
+    </svg>
+  );
+}
+
+function ExportIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+      />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+      />
+    </svg>
+  );
+}
+
+function DocumentIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+      />
+    </svg>
+  );
+}
