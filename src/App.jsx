@@ -31,7 +31,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import AdminReportsPage from "./pages/Admin/AdminReportsPage";
 import AdminGraduatesPage from "./pages/Admin/AdminGraduatesPage";
 import AdminGraduateDetailPage from "./pages/Admin/AdminGraduateDetailPage";
-import AdminExport from "./pages/admin/AdminExport";
+import AdminExport from "./pages/Admin/AdminExport";
 
 function App() {
   return (
