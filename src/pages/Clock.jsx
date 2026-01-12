@@ -15,6 +15,7 @@ export default function Clock() {
   const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [hasClockedInToday, setHasClockedInToday] = useState(false);
 
   // Initialize clock state from backend on page load
   useEffect(() => {
@@ -24,13 +25,36 @@ export default function Clock() {
         const { status: currentStatus, data } = response;
 
         if (currentStatus === "clocked-out" || !data) {
-          // User not clocked in
+          // User not clocked in right now.
+          // Still need to know whether they've already clocked in earlier today.
           setStatus("clocked-out");
           setStartTime(null);
           setBreakStartTime(null);
           setAccumulatedTime(0);
           setBreakTaken(false);
+
+          // Check if there's a clock-in record for today; if yes, disable clock-in.
+          try {
+            const todayResp = await api.attendance.getToday();
+            const todayRecord = todayResp?.data;
+            const hasClockIn = Boolean(todayRecord?.clockIn);
+            setHasClockedInToday(hasClockIn);
+
+            // If backend returns a record that indicates user is actually clocked-in,
+            // prefer it over status.
+            if (hasClockIn && !todayRecord.clockOut) {
+              setStatus(todayRecord.breakIn && !todayRecord.breakOut ? "on-break" : "clocked-in");
+              setStartTime(new Date(todayRecord.clockIn).getTime());
+              if (todayRecord.breakIn && !todayRecord.breakOut) {
+                setBreakStartTime(new Date(todayRecord.breakIn).getTime());
+              }
+            }
+          } catch {
+            // If endpoint isn't available or fails, fall back to allowing clock-in.
+            setHasClockedInToday(false);
+          }
         } else if (currentStatus === "clocked-in") {
+          setHasClockedInToday(true);
           // User is working
           setStatus("clocked-in");
           setStartTime(new Date(data.clockIn).getTime());
@@ -49,6 +73,7 @@ export default function Clock() {
           // Store work time before break
           setAccumulatedTime(data.duration || 0);
           setBreakTaken(false); // Will be true after break ends
+          setHasClockedInToday(true);
         }
       } catch (error) {
         console.error("Failed to initialize clock:", error);
@@ -62,6 +87,8 @@ export default function Clock() {
   }, []);
 
   const handleClockIn = async () => {
+    if (hasClockedInToday) return;
+
     setIsLoading(true);
     try {
       const response = await api.attendance.clockIn({ notes: note });
@@ -71,11 +98,18 @@ export default function Clock() {
       setStartTime(new Date(data.clockIn).getTime());
       setAccumulatedTime(0);
       setBreakTaken(false);
+      setHasClockedInToday(true);
       setNote("");
 
       toast.success("Clocked in successfully");
     } catch (error) {
-      toast.error(error.message);
+      const msg = error?.message || "Failed to clock in";
+      toast.error(msg);
+
+      // If backend says user already clocked in today, lock the button.
+      if (msg.toLowerCase().includes("already clocked in today")) {
+        setHasClockedInToday(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -275,7 +309,7 @@ export default function Clock() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onClick={handleClockIn}
-                disabled={isLoading}
+                disabled={isLoading || hasClockedInToday}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="flex items-center justify-center gap-3">
@@ -283,6 +317,11 @@ export default function Clock() {
                     <>
                       <Spinner />
                       Clocking In...
+                    </>
+                  ) : hasClockedInToday ? (
+                    <>
+                      <PlayIcon className="w-5 h-5" />
+                      Already Clocked In Today
                     </>
                   ) : (
                     <>
