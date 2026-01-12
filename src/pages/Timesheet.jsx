@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import api from "../services/Api";
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
 
 export default function Timesheet() {
   const [entries, setEntries] = useState([]);
@@ -33,7 +33,7 @@ export default function Timesheet() {
     setLoading(true);
     try {
       const params = {};
-      
+
       // Calculate date range based on selected month/year
       if (selectedMonth && selectedYear) {
         const year = parseInt(selectedYear);
@@ -41,7 +41,9 @@ export default function Timesheet() {
         const startDate = `${year}-${selectedMonth}-01`;
         // Get last day of month
         const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${selectedMonth}-${lastDay.toString().padStart(2, '0')}`;
+        const endDate = `${year}-${selectedMonth}-${lastDay
+          .toString()
+          .padStart(2, "0")}`;
         params.startDate = startDate;
         params.endDate = endDate;
       } else if (selectedYear && !selectedMonth) {
@@ -49,24 +51,36 @@ export default function Timesheet() {
         params.startDate = `${selectedYear}-01-01`;
         params.endDate = `${selectedYear}-12-31`;
       }
-      
-      console.log("Fetching attendance history with params:", params);
+
+      // Useful debug: shows the effective filters used when loading
+      console.debug("[Timesheet] Loading attendance history", params);
       const response = await api.attendance.getHistory(params);
-      console.log("Attendance history response:", response);
-      
+
       // Handle both response formats: { data: [] } or direct array
-      const entriesArray = Array.isArray(response?.data) 
-        ? response.data 
-        : Array.isArray(response) 
-          ? response 
-          : [];
-      
-      console.log("Parsed entries array:", entriesArray);
-      if (entriesArray.length > 0) {
-        console.log("First entry sample:", entriesArray[0]);
-      }
-      
-      setEntries(entriesArray);
+      const entriesArray = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      // Defensive filtering: ignore clearly-invalid placeholder records
+      // (e.g. epoch/1970 dates) which can show up from backend seed/default values.
+      const sanitizedEntries = entriesArray.filter((entry) => {
+        const clockIn = entry?.clockIn ? new Date(entry.clockIn) : null;
+        if (!clockIn || Number.isNaN(clockIn.getTime())) return false;
+        // Anything before year 2000 is almost certainly a placeholder (epoch-like).
+        return clockIn.getFullYear() >= 2000;
+      });
+
+      // Useful debug: how many entries were returned vs displayed
+      console.debug(
+        "[Timesheet] Entries loaded:",
+        sanitizedEntries.length,
+        "/",
+        entriesArray.length
+      );
+
+      setEntries(sanitizedEntries);
     } catch (error) {
       console.error("Failed to load timesheet:", error);
       toast.error("Failed to load timesheet");
@@ -81,12 +95,12 @@ export default function Timesheet() {
 
   const formatDuration = (record) => {
     if (!record.clockOut) return "In Progress";
-    
+
     // Use durationFormatted if available (from backend)
     if (record.durationFormatted) {
       return record.durationFormatted;
     }
-    
+
     // If duration is a number (milliseconds), format it
     if (typeof record.duration === "number") {
       const totalSeconds = Math.floor(record.duration / 1000);
@@ -94,45 +108,48 @@ export default function Timesheet() {
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       return `${hours}h ${minutes}m`;
     }
-    
+
     // If duration is already a string, return it
     if (typeof record.duration === "string") {
       return record.duration;
     }
-    
+
     return "0h 0m";
   };
 
-  const totalHours = Array.isArray(entries) ? entries.reduce((acc, entry) => {
-    if (entry.duration) {
-      console.log("Processing duration:", entry.duration, "Type:", typeof entry.duration);
-      
-      // Handle duration as milliseconds (number)
-      if (typeof entry.duration === "number") {
-        const hours = entry.duration / (1000 * 60 * 60);
-        return acc + hours;
-      }
-      
-      // Handle duration as formatted string like "8h 30m" or "8h 30m 0s"
-      if (typeof entry.duration === "string") {
-        const parts = entry.duration.split(" ");
-        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-        return acc + hours + minutes / 60;
-      }
-    }
-    
-    // Try durationFormatted if duration is not usable
-    if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
-      console.log("Using durationFormatted:", entry.durationFormatted);
-      const parts = entry.durationFormatted.split(" ");
-      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-      return acc + hours + minutes / 60;
-    }
-    
-    return acc;
-  }, 0) : 0;
+  const totalHours = Array.isArray(entries)
+    ? entries.reduce((acc, entry) => {
+        if (entry.duration) {
+          
+          // Handle duration as milliseconds (number)
+          if (typeof entry.duration === "number") {
+            const hours = entry.duration / (1000 * 60 * 60);
+            return acc + hours;
+          }
+
+          // Handle duration as formatted string like "8h 30m" or "8h 30m 0s"
+          if (typeof entry.duration === "string") {
+            const parts = entry.duration.split(" ");
+            const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+            const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+            return acc + hours + minutes / 60;
+          }
+        }
+
+        // Try durationFormatted if duration is not usable
+        if (
+          entry.durationFormatted &&
+          typeof entry.durationFormatted === "string"
+        ) {
+                    const parts = entry.durationFormatted.split(" ");
+          const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+          const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+          return acc + hours + minutes / 60;
+        }
+
+        return acc;
+      }, 0)
+    : 0;
 
   const clearFilters = () => {
     setSelectedMonth("");
@@ -143,7 +160,7 @@ export default function Timesheet() {
   useEffect(() => {
     const now = new Date();
     setSelectedYear(now.getFullYear().toString());
-    setSelectedMonth((now.getMonth() + 1).toString().padStart(2, '0'));
+    setSelectedMonth((now.getMonth() + 1).toString().padStart(2, "0"));
   }, []);
 
   if (loading) return <div>Loading timesheet...</div>;
@@ -231,7 +248,9 @@ export default function Timesheet() {
         </div>
         {selectedMonth && selectedYear && (
           <p className="text-sm text-white/40 mt-3">
-            Showing entries for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}
+            Showing entries for{" "}
+            {months.find((m) => m.value === selectedMonth)?.label}{" "}
+            {selectedYear}
           </p>
         )}
       </motion.div>

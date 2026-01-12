@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 function getWeekdaysInMonth(year, month) {
   const weekdays = [];
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  
+
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, month, day);
     const dayOfWeek = date.getDay();
@@ -21,6 +21,14 @@ function getWeekdaysInMonth(year, month) {
   return weekdays;
 }
 
+// Helper to get local date key (YYYY-MM-DD) without UTC conversion
+function getLocalDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export default function AdminGraduateDetailPage() {
   const { id } = useParams();
   const [graduate, setGraduate] = useState(null);
@@ -29,7 +37,10 @@ export default function AdminGraduateDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}`;
   });
 
   useEffect(() => {
@@ -40,33 +51,34 @@ export default function AdminGraduateDetailPage() {
         const graduatesRes = await api.admin.getUsers({ role: "graduate" });
         const graduates = graduatesRes.data || [];
         const found = graduates.find((u) => u._id === id);
-        
+
         if (found) {
           setGraduate(found);
-          
+
           // Get attendance history for this user
           try {
             const attendanceRes = await api.attendance.getAll({ userId: id });
-            const attendanceArray = Array.isArray(attendanceRes?.data) 
-              ? attendanceRes.data 
-              : Array.isArray(attendanceRes) 
-                ? attendanceRes 
-                : [];
+            const attendanceArray = Array.isArray(attendanceRes?.data)
+              ? attendanceRes.data
+              : Array.isArray(attendanceRes)
+              ? attendanceRes
+              : [];
             setTimesheet(attendanceArray);
+            console.log("Attendance loaded for user:", attendanceArray);
           } catch (err) {
             console.error("Failed to load attendance:", err);
             setTimesheet([]);
           }
-          
+
           // Get reports for this user
           try {
             const reportsRes = await api.admin.getReports({ userId: id });
             // Handle both { data: [...] } and direct array response
-            const reportsArray = Array.isArray(reportsRes?.data) 
-              ? reportsRes.data 
-              : Array.isArray(reportsRes) 
-                ? reportsRes 
-                : [];
+            const reportsArray = Array.isArray(reportsRes?.data)
+              ? reportsRes.data
+              : Array.isArray(reportsRes)
+              ? reportsRes
+              : [];
             setReports(reportsArray);
             console.log("Reports loaded for user:", reportsArray);
           } catch (err) {
@@ -95,7 +107,7 @@ export default function AdminGraduateDetailPage() {
       if (typeof entry.duration === "number") {
         return acc + entry.duration / (1000 * 60 * 60);
       }
-      
+
       // Handle duration as formatted string like "8h 30m"
       if (typeof entry.duration === "string") {
         const parts = entry.duration.split(" ");
@@ -103,21 +115,24 @@ export default function AdminGraduateDetailPage() {
         const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
         return acc + hours + minutes / 60;
       }
-      
+
       // Try durationFormatted
-      if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
+      if (
+        entry.durationFormatted &&
+        typeof entry.durationFormatted === "string"
+      ) {
         const parts = entry.durationFormatted.split(" ");
         const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
         const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
         return acc + hours + minutes / 60;
       }
-      
+
       // Calculate from clockIn/clockOut
       if (entry.clockOut && entry.clockIn) {
         const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
         return acc + ms / 3600000;
       }
-      
+
       return acc;
     }, 0);
   }, [timesheet]);
@@ -129,11 +144,12 @@ export default function AdminGraduateDetailPage() {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
-    // Create a map of timesheet entries by date
+    // Create a map of timesheet entries by date using LOCAL date key
     const timesheetByDate = {};
     timesheet.forEach((entry) => {
       const clockInDate = new Date(entry.clockIn);
-      const dateKey = clockInDate.toISOString().split("T")[0];
+      // Use local date key to avoid UTC day shift
+      const dateKey = getLocalDateKey(clockInDate);
       if (!timesheetByDate[dateKey]) {
         timesheetByDate[dateKey] = [];
       }
@@ -141,7 +157,8 @@ export default function AdminGraduateDetailPage() {
     });
 
     return weekdays.map((date) => {
-      const dateKey = date.toISOString().split("T")[0];
+      // Use local date key for weekdays as well
+      const dateKey = getLocalDateKey(date);
       const entries = timesheetByDate[dateKey] || [];
       const isFuture = date > today;
 
@@ -156,10 +173,10 @@ export default function AdminGraduateDetailPage() {
             totalHours += ms / 3600000;
           }
         });
-        
+
         const firstEntry = entries[0];
         const lastEntry = entries[entries.length - 1];
-        
+
         return {
           date,
           dateKey,
@@ -195,17 +212,26 @@ export default function AdminGraduateDetailPage() {
 
   // Calculate stats for selected month
   const monthStats = useMemo(() => {
-    const presentDays = attendanceData.filter((d) => d.status === "present" || d.status === "in-progress").length;
-    const absentDays = attendanceData.filter((d) => d.status === "absent").length;
-    const totalWorkDays = attendanceData.filter((d) => d.status !== "future").length;
+    const presentDays = attendanceData.filter(
+      (d) => d.status === "present" || d.status === "in-progress"
+    ).length;
+    const absentDays = attendanceData.filter(
+      (d) => d.status === "absent"
+    ).length;
+    const totalWorkDays = attendanceData.filter(
+      (d) => d.status !== "future"
+    ).length;
     const totalHoursMonth = attendanceData.reduce((acc, d) => acc + d.hours, 0);
-    
+
     return {
       presentDays,
       absentDays,
       totalWorkDays,
       totalHoursMonth,
-      attendanceRate: totalWorkDays > 0 ? ((presentDays / totalWorkDays) * 100).toFixed(0) : 0,
+      attendanceRate:
+        totalWorkDays > 0
+          ? ((presentDays / totalWorkDays) * 100).toFixed(0)
+          : 0,
     };
   }, [attendanceData]);
 
@@ -215,8 +241,13 @@ export default function AdminGraduateDetailPage() {
     const now = new Date();
     for (let i = 0; i < 12; i++) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const label = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const value = `${date.getFullYear()}-${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}`;
+      const label = date.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
       options.push({ value, label });
     }
     return options;
@@ -229,15 +260,15 @@ export default function AdminGraduateDetailPage() {
     if (!graduate || !id) return;
 
     const [year, month] = selectedMonth.split("-").map(Number);
-    
+
     setExporting(true);
     try {
       const response = await api.attendance.exportUser(id, {
         year: year.toString(),
         month: month.toString(),
-        type: exportFormat
+        type: exportFormat,
       });
-      
+
       // Download the file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -249,7 +280,7 @@ export default function AdminGraduateDetailPage() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
+
       toast.success(`Attendance exported as ${exportFormat.toUpperCase()}`);
     } catch (error) {
       console.error("Export failed:", error);
@@ -306,7 +337,9 @@ export default function AdminGraduateDetailPage() {
               <p className="text-white/50">{graduate.email}</p>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 {graduate.cellNumber && (
-                  <span className="text-sm text-white/40">{graduate.cellNumber}</span>
+                  <span className="text-sm text-white/40">
+                    {graduate.cellNumber}
+                  </span>
                 )}
                 {graduate.department && (
                   <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
@@ -335,7 +368,9 @@ export default function AdminGraduateDetailPage() {
             className="stat-card"
           >
             <span className="stat-label">Present Days</span>
-            <span className="stat-value text-emerald-400">{monthStats.presentDays}</span>
+            <span className="stat-value text-emerald-400">
+              {monthStats.presentDays}
+            </span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -344,7 +379,9 @@ export default function AdminGraduateDetailPage() {
             className="stat-card"
           >
             <span className="stat-label">Absent Days</span>
-            <span className="stat-value text-red-400">{monthStats.absentDays}</span>
+            <span className="stat-value text-red-400">
+              {monthStats.absentDays}
+            </span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -364,7 +401,9 @@ export default function AdminGraduateDetailPage() {
             className="stat-card"
           >
             <span className="stat-label">Attendance</span>
-            <span className="stat-value text-blue-400">{monthStats.attendanceRate}%</span>
+            <span className="stat-value text-blue-400">
+              {monthStats.attendanceRate}%
+            </span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -396,7 +435,11 @@ export default function AdminGraduateDetailPage() {
                     className="appearance-none px-4 py-2 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
                   >
                     {monthOptions.map((option) => (
-                      <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        className="bg-[#1a1a1a]"
+                      >
                         {option.label}
                       </option>
                     ))}
@@ -409,8 +452,12 @@ export default function AdminGraduateDetailPage() {
                     onChange={(e) => setExportFormat(e.target.value)}
                     className="appearance-none px-3 py-2 pr-8 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
                   >
-                    <option value="pdf" className="bg-[#1a1a1a]">PDF</option>
-                    <option value="csv" className="bg-[#1a1a1a]">CSV</option>
+                    <option value="pdf" className="bg-[#1a1a1a]">
+                      PDF
+                    </option>
+                    <option value="csv" className="bg-[#1a1a1a]">
+                      CSV
+                    </option>
                   </select>
                   <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -445,7 +492,9 @@ export default function AdminGraduateDetailPage() {
                   {attendanceData.map((day) => (
                     <tr
                       key={day.dateKey}
-                      className={`border-b border-white/[0.04] ${day.status === "absent" ? "bg-red-500/5" : ""}`}
+                      className={`border-b border-white/[0.04] ${
+                        day.status === "absent" ? "bg-red-500/5" : ""
+                      }`}
                     >
                       <td className="table-cell font-medium text-white">
                         {day.date.toLocaleDateString("en-US", {
@@ -454,7 +503,9 @@ export default function AdminGraduateDetailPage() {
                         })}
                       </td>
                       <td className="table-cell text-white/60">
-                        {day.date.toLocaleDateString("en-US", { weekday: "short" })}
+                        {day.date.toLocaleDateString("en-US", {
+                          weekday: "short",
+                        })}
                       </td>
                       <td className="table-cell">
                         {day.clockIn
@@ -531,48 +582,57 @@ export default function AdminGraduateDetailPage() {
                 {[...reports]
                   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                   .map((report) => (
-                  <div
-                    key={report._id}
-                    className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-white capitalize text-sm">
-                        Weekly Report
-                      </h4>
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                        report.status === "Approved" 
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : report.status === "Rejected"
-                          ? "bg-red-500/10 text-red-400"
-                          : report.status === "Reviewed"
-                          ? "bg-yellow-500/10 text-yellow-400"
-                          : "bg-blue-500/10 text-blue-400"
-                      }`}>
-                        {report.status}
-                      </span>
+                    <div
+                      key={report._id}
+                      className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-white capitalize text-sm">
+                          Weekly Report
+                        </h4>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                            report.status === "Approved"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : report.status === "Rejected"
+                              ? "bg-red-500/10 text-red-400"
+                              : report.status === "Reviewed"
+                              ? "bg-yellow-500/10 text-yellow-400"
+                              : "bg-blue-500/10 text-blue-400"
+                          }`}
+                        >
+                          {report.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/50 mb-2">
+                        {new Date(report.weekStart).toLocaleDateString()} -{" "}
+                        {new Date(report.weekEnd).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-white/60 line-clamp-2">
+                        {report.summary}
+                      </p>
+                      {report.challenges && (
+                        <div className="mt-2">
+                          <p className="text-xs text-white/40 mb-1">
+                            Challenges:
+                          </p>
+                          <p className="text-xs text-white/60 line-clamp-2">
+                            {report.challenges}
+                          </p>
+                        </div>
+                      )}
+                      {report.reviewComment && (
+                        <div className="mt-2 pt-2 border-t border-white/[0.06]">
+                          <p className="text-xs text-emerald-400 font-medium mb-1">
+                            Feedback:
+                          </p>
+                          <p className="text-xs text-white/60">
+                            {report.reviewComment}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-white/50 mb-2">
-                      {new Date(report.weekStart).toLocaleDateString()} - {new Date(report.weekEnd).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-white/60 line-clamp-2">
-                      {report.summary}
-                    </p>
-                    {report.challenges && (
-                      <div className="mt-2">
-                        <p className="text-xs text-white/40 mb-1">Challenges:</p>
-                        <p className="text-xs text-white/60 line-clamp-2">{report.challenges}</p>
-                      </div>
-                    )}
-                    {report.reviewComment && (
-                      <div className="mt-2 pt-2 border-t border-white/[0.06]">
-                        <p className="text-xs text-emerald-400 font-medium mb-1">Feedback:</p>
-                        <p className="text-xs text-white/60">
-                          {report.reviewComment}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </motion.div>
