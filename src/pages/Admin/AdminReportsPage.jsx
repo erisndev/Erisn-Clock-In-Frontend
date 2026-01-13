@@ -24,13 +24,16 @@ function formatDate(date) {
 
 function getWeekLabel(monday, friday) {
   const options = { month: "short", day: "numeric" };
-  return `${monday.toLocaleDateString("en-US", options)} - ${friday.toLocaleDateString("en-US", options)}`;
+  return `${monday.toLocaleDateString(
+    "en-US",
+    options
+  )} - ${friday.toLocaleDateString("en-US", options)}`;
 }
 
 function getDefaultWeek() {
   const today = new Date();
   const dayOfWeek = today.getDay();
-  
+
   if (dayOfWeek >= 5 || dayOfWeek === 0) {
     return getWeekDates(today);
   } else {
@@ -43,10 +46,10 @@ function getDefaultWeek() {
 function generateWeekOptions() {
   const weeks = [];
   const today = new Date();
-  
+
   for (let i = 0; i < 12; i++) {
     const date = new Date(today);
-    date.setDate(today.getDate() - (i * 7));
+    date.setDate(today.getDate() - i * 7);
     const { monday, friday } = getWeekDates(date);
     weeks.push({
       value: formatDate(monday),
@@ -55,7 +58,7 @@ function generateWeekOptions() {
       friday,
     });
   }
-  
+
   return weeks;
 }
 
@@ -82,12 +85,12 @@ export default function AdminReportsPage() {
     setLoading(true);
     try {
       const params = {};
-      
+
       // Add status filter
       if (statusFilter !== "all") {
         params.status = statusFilter;
       }
-      
+
       // Add week filter
       if (selectedWeek !== "all") {
         const weekOption = weekOptions.find((w) => w.value === selectedWeek);
@@ -96,16 +99,16 @@ export default function AdminReportsPage() {
           params.endDate = formatDate(weekOption.friday);
         }
       }
-      
+
       const response = await api.admin.getReports(params);
       // Handle both { data: [...] } and direct array response
-      const reportsArray = Array.isArray(response?.data) 
-        ? response.data 
-        : Array.isArray(response) 
-          ? response 
-          : [];
+      const reportsArray = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
       setReports(reportsArray);
-      console.log("Admin reports loaded:", reportsArray);
+      console.log("Admin reports loaded:", response);
     } catch (error) {
       console.error("Failed to load reports:", error);
       toast.error("Failed to load reports");
@@ -142,7 +145,9 @@ export default function AdminReportsPage() {
   const handleApprove = async (reportId) => {
     setActionLoading(true);
     try {
-      await api.admin.approveReport(reportId, { reviewComment: feedback || undefined });
+      await api.admin.approveReport(reportId, {
+        reviewComment: feedback || undefined,
+      });
       toast.success("Report approved");
       loadReports();
       setFeedbackReport(null);
@@ -176,7 +181,9 @@ export default function AdminReportsPage() {
   const handleMarkReviewed = async (reportId) => {
     setActionLoading(true);
     try {
-      await api.admin.markReportReviewed(reportId, { reviewComment: feedback || undefined });
+      await api.admin.markReportReviewed(reportId, {
+        reviewComment: feedback || undefined,
+      });
       toast.success("Report marked as reviewed");
       loadReports();
       setFeedbackReport(null);
@@ -199,16 +206,20 @@ export default function AdminReportsPage() {
     return colors[status] || "bg-gray-500/20 text-gray-400";
   };
 
-  const currentWeekLabel = weekOptions.find((w) => w.value === selectedWeek)?.label || "All Weeks";
+  const currentWeekLabel =
+    weekOptions.find((w) => w.value === selectedWeek)?.label || "All Weeks";
 
   // Stats
-  const stats = useMemo(() => ({
-    total: reports.length,
-    submitted: reports.filter(r => r.status === "Submitted").length,
-    reviewed: reports.filter(r => r.status === "Reviewed").length,
-    approved: reports.filter(r => r.status === "Approved").length,
-    rejected: reports.filter(r => r.status === "Rejected").length,
-  }), [reports]);
+  const stats = useMemo(
+    () => ({
+      total: reports.length,
+      submitted: reports.filter((r) => r.status === "Submitted").length,
+      reviewed: reports.filter((r) => r.status === "Reviewed").length,
+      approved: reports.filter((r) => r.status === "Approved").length,
+      rejected: reports.filter((r) => r.status === "Rejected").length,
+    }),
+    [reports]
+  );
 
   return (
     <>
@@ -222,7 +233,9 @@ export default function AdminReportsPage() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h1 className="page-title">Weekly Reports</h1>
-              <p className="page-subtitle mt-1">Review and manage graduate weekly reports</p>
+              <p className="page-subtitle mt-1">
+                Review and manage graduate weekly reports
+              </p>
             </div>
           </div>
 
@@ -256,11 +269,21 @@ export default function AdminReportsPage() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer min-w-[140px]"
                 >
-                  <option value="all" className="bg-[#1a1a1a]">All Status</option>
-                  <option value="Submitted" className="bg-[#1a1a1a]">Submitted</option>
-                  <option value="Reviewed" className="bg-[#1a1a1a]">Reviewed</option>
-                  <option value="Approved" className="bg-[#1a1a1a]">Approved</option>
-                  <option value="Rejected" className="bg-[#1a1a1a]">Rejected</option>
+                  <option value="all" className="bg-[#1a1a1a]">
+                    All Status
+                  </option>
+                  <option value="Submitted" className="bg-[#1a1a1a]">
+                    Submitted
+                  </option>
+                  <option value="Reviewed" className="bg-[#1a1a1a]">
+                    Reviewed
+                  </option>
+                  <option value="Approved" className="bg-[#1a1a1a]">
+                    Approved
+                  </option>
+                  <option value="Rejected" className="bg-[#1a1a1a]">
+                    Rejected
+                  </option>
                 </select>
                 <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -284,7 +307,11 @@ export default function AdminReportsPage() {
                     className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer min-w-[180px]"
                   >
                     {weekOptions.map((week) => (
-                      <option key={week.value} value={week.value} className="bg-[#1a1a1a]">
+                      <option
+                        key={week.value}
+                        value={week.value}
+                        className="bg-[#1a1a1a]"
+                      >
                         {week.label}
                       </option>
                     ))}
@@ -303,15 +330,21 @@ export default function AdminReportsPage() {
             </div>
             <div className="glass-card px-4 py-3">
               <p className="text-xs text-white/50">Submitted</p>
-              <p className="text-xl font-bold text-blue-400">{stats.submitted}</p>
+              <p className="text-xl font-bold text-blue-400">
+                {stats.submitted}
+              </p>
             </div>
             <div className="glass-card px-4 py-3">
               <p className="text-xs text-white/50">Reviewed</p>
-              <p className="text-xl font-bold text-yellow-400">{stats.reviewed}</p>
+              <p className="text-xl font-bold text-yellow-400">
+                {stats.reviewed}
+              </p>
             </div>
             <div className="glass-card px-4 py-3">
               <p className="text-xs text-white/50">Approved</p>
-              <p className="text-xl font-bold text-emerald-400">{stats.approved}</p>
+              <p className="text-xl font-bold text-emerald-400">
+                {stats.approved}
+              </p>
             </div>
             <div className="glass-card px-4 py-3">
               <p className="text-xs text-white/50">Rejected</p>
@@ -328,7 +361,9 @@ export default function AdminReportsPage() {
           ) : filteredReports.length === 0 ? (
             <div className="glass-card p-12 text-center">
               <InboxIcon className="w-12 h-12 mx-auto mb-4 text-white/20" />
-              <h3 className="text-lg font-semibold text-white mb-2">No reports found</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                No reports found
+              </h3>
               <p className="text-white/50">
                 {searchQuery
                   ? `No reports found for "${searchQuery}"`
@@ -351,10 +386,15 @@ export default function AdminReportsPage() {
                         {report.userId?.name || "Graduate"}
                       </h3>
                       <p className="text-sm text-white/50">
-                        {new Date(report.weekStart).toLocaleDateString()} - {new Date(report.weekEnd).toLocaleDateString()}
+                        {new Date(report.weekStart).toLocaleDateString()} -{" "}
+                        {new Date(report.weekEnd).toLocaleDateString()}
                       </p>
                     </div>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                        report.status
+                      )}`}
+                    >
                       {report.status}
                     </span>
                   </div>
@@ -387,7 +427,9 @@ export default function AdminReportsPage() {
                   {report.reviewComment && (
                     <div className="mt-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                       <p className="text-xs text-white/50 mb-1">Feedback:</p>
-                      <p className="text-sm text-white/70 line-clamp-2">{report.reviewComment}</p>
+                      <p className="text-sm text-white/70 line-clamp-2">
+                        {report.reviewComment}
+                      </p>
                     </div>
                   )}
                 </motion.div>
@@ -416,13 +458,20 @@ export default function AdminReportsPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-bold text-white">{viewReport.userId?.name}'s Report</h2>
+                  <h2 className="text-xl font-bold text-white">
+                    {viewReport.userId?.name}'s Report
+                  </h2>
                   <p className="text-sm text-white/50">
-                    {new Date(viewReport.weekStart).toLocaleDateString()} - {new Date(viewReport.weekEnd).toLocaleDateString()}
+                    {new Date(viewReport.weekStart).toLocaleDateString()} -{" "}
+                    {new Date(viewReport.weekEnd).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(viewReport.status)}`}>
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                      viewReport.status
+                    )}`}
+                  >
                     {viewReport.status}
                   </span>
                   <button
@@ -436,41 +485,53 @@ export default function AdminReportsPage() {
 
               <div className="space-y-5">
                 <div>
-                  <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Summary</h3>
+                  <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">
+                    Summary
+                  </h3>
                   <p className="text-white/90">{viewReport.summary}</p>
                 </div>
 
                 {viewReport.challenges && (
                   <div>
-                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Challenges</h3>
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">
+                      Challenges
+                    </h3>
                     <p className="text-white/90">{viewReport.challenges}</p>
                   </div>
                 )}
 
                 {viewReport.learnings && (
                   <div>
-                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Key Learnings</h3>
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">
+                      Key Learnings
+                    </h3>
                     <p className="text-white/90">{viewReport.learnings}</p>
                   </div>
                 )}
 
                 {viewReport.nextWeek && (
                   <div>
-                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Plans for Next Week</h3>
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">
+                      Plans for Next Week
+                    </h3>
                     <p className="text-white/90">{viewReport.nextWeek}</p>
                   </div>
                 )}
 
                 {viewReport.goals && (
                   <div>
-                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Goals</h3>
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">
+                      Goals
+                    </h3>
                     <p className="text-white/90">{viewReport.goals}</p>
                   </div>
                 )}
 
                 {viewReport.reviewComment && (
                   <div className="pt-4 border-t border-white/10">
-                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">Admin Feedback</h3>
+                    <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider mb-2">
+                      Admin Feedback
+                    </h3>
                     <p className="text-white/90">{viewReport.reviewComment}</p>
                   </div>
                 )}
@@ -598,32 +659,72 @@ function Spinner({ className }) {
 
 function InboxIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z"
+      />
     </svg>
   );
 }
 
 function XIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 18L18 6M6 6l12 12"
+      />
     </svg>
   );
 }
 
 function SearchIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+      />
     </svg>
   );
 }
 
 function ChevronDownIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+      />
     </svg>
   );
 }

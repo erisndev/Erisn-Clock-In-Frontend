@@ -5,6 +5,8 @@ import BreakTimer from "../components/BreakTimer";
 import LiveClock from "../components/LiveClock";
 import api from "../services/Api";
 import toast from "react-hot-toast";
+import { formatTimeSA } from "../utils/time";
+import { getDisplayDuration } from "../utils/attendanceDuration";
 
 export default function Clock() {
   const [status, setStatus] = useState("clocked-out");
@@ -15,6 +17,9 @@ export default function Clock() {
   const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [hasClockedInToday, setHasClockedInToday] = useState(false);
+  const [currentAttendance, setCurrentAttendance] = useState(null);
+  const [, forceTick] = useState(0);
 
   // Initialize clock state from backend on page load
   useEffect(() => {
@@ -24,13 +29,39 @@ export default function Clock() {
         const { status: currentStatus, data } = response;
 
         if (currentStatus === "clocked-out" || !data) {
-          // User not clocked in
+          setCurrentAttendance(null);
+          // User not clocked in right now.
+          // Still need to know whether they've already clocked in earlier today.
           setStatus("clocked-out");
           setStartTime(null);
           setBreakStartTime(null);
           setAccumulatedTime(0);
           setBreakTaken(false);
+
+          // Check if there's a clock-in record for today; if yes, disable clock-in.
+          try {
+            const todayResp = await api.attendance.getToday();
+            const todayRecord = todayResp?.data;
+            const hasClockIn = Boolean(todayRecord?.clockIn);
+            setHasClockedInToday(hasClockIn);
+
+            // If backend returns a record that indicates user is actually clocked-in,
+            // prefer it over status.
+            if (hasClockIn && !todayRecord.clockOut) {
+              setCurrentAttendance(todayRecord);
+              setStatus(todayRecord.breakIn && !todayRecord.breakOut ? "on-break" : "clocked-in");
+              setStartTime(new Date(todayRecord.clockIn).getTime());
+              if (todayRecord.breakIn && !todayRecord.breakOut) {
+                setBreakStartTime(new Date(todayRecord.breakIn).getTime());
+              }
+            }
+          } catch {
+            // If endpoint isn't available or fails, fall back to allowing clock-in.
+            setHasClockedInToday(false);
+          }
         } else if (currentStatus === "clocked-in") {
+          setHasClockedInToday(true);
+          setCurrentAttendance(data);
           // User is working
           setStatus("clocked-in");
           setStartTime(new Date(data.clockIn).getTime());
@@ -42,6 +73,7 @@ export default function Clock() {
             setStartTime(now - data.duration);
           }
         } else if (currentStatus === "on-break") {
+          setCurrentAttendance(data);
           // User is on break
           setStatus("on-break");
           setStartTime(new Date(data.clockIn).getTime());
@@ -49,6 +81,7 @@ export default function Clock() {
           // Store work time before break
           setAccumulatedTime(data.duration || 0);
           setBreakTaken(false); // Will be true after break ends
+          setHasClockedInToday(true);
         }
       } catch (error) {
         console.error("Failed to initialize clock:", error);
@@ -61,21 +94,58 @@ export default function Clock() {
     initializeClock();
   }, []);
 
+  // Make the work timer tick live while session is open AND not currently on break.
+  useEffect(() => {
+    const isOpen =
+      Boolean(currentAttendance?.clockIn) &&
+      !currentAttendance?.clockOut &&
+      !currentAttendance?.isClosed;
+
+    const isOnBreak =
+      Boolean(currentAttendance?.breakIn) && !currentAttendance?.breakOut;
+
+    if (!isOpen || isOnBreak) return;
+
+    const id = setInterval(() => forceTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [
+    currentAttendance?.clockIn,
+    currentAttendance?.clockOut,
+    currentAttendance?.isClosed,
+    currentAttendance?.breakIn,
+    currentAttendance?.breakOut,
+  ]);
+
   const handleClockIn = async () => {
+    if (hasClockedInToday) return;
+
+    const payload = { notes: note };
+    const clientTimeISO = new Date().toISOString();
+
+    
     setIsLoading(true);
     try {
-      const response = await api.attendance.clockIn({ notes: note });
+      const response = await api.attendance.clockIn(payload);
       const { data } = response;
 
+      
+      setCurrentAttendance(data);
       setStatus("clocked-in");
       setStartTime(new Date(data.clockIn).getTime());
       setAccumulatedTime(0);
       setBreakTaken(false);
+      setHasClockedInToday(true);
       setNote("");
 
       toast.success("Clocked in successfully");
     } catch (error) {
-      toast.error(error.message);
+      const msg = error?.message || "Failed to clock in";
+      toast.error(msg);
+
+      // If backend says user already clocked in today, lock the button.
+      if (msg.toLowerCase().includes("already clocked in today")) {
+        setHasClockedInToday(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +157,7 @@ export default function Clock() {
       const response = await api.attendance.clockOut({ notes: note });
       const { data } = response;
 
+      setCurrentAttendance(null);
       setStatus("clocked-out");
       setStartTime(null);
       setBreakStartTime(null);
@@ -94,7 +165,11 @@ export default function Clock() {
       setBreakTaken(false);
       setNote("");
 
-      toast.success(`Clocked out! Total work time: ${data.durationFormatted}`);
+      toast.success(
+        `Clocked out! Total work time: ${data.durationFormatted}${
+          data?.clockOut ? ` (Out: ${formatTimeSA(data.clockOut)})` : ""
+        }`
+      );
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -108,6 +183,17 @@ export default function Clock() {
       const response = await api.attendance.breakIn();
       const { data } = response;
 
+      // Ensure work time pauses at "work time before break" if backend provides it.
+      // This prevents showing projected/capped durations while on break.
+      setCurrentAttendance((prev) => ({
+        ...(prev || {}),
+        ...data,
+        duration:
+          typeof data?.workTimeBeforeBreak === "number"
+            ? data.workTimeBeforeBreak
+            : prev?.duration,
+        durationFormatted: null,
+      }));
       setStatus("on-break");
       setBreakStartTime(new Date(data.breakIn).getTime());
       // Store current work time from backend
@@ -127,6 +213,10 @@ export default function Clock() {
       const response = await api.attendance.breakOut();
       const { data } = response;
 
+      setCurrentAttendance((prev) => ({
+        ...(prev || {}),
+        ...data,
+      }));
       setStatus("clocked-in");
       setBreakStartTime(null);
       setBreakTaken(true);
@@ -233,15 +323,30 @@ export default function Clock() {
                   Work Time {status === "on-break" && "(Paused)"}
                 </p>
               </div>
-              {status === "on-break" ? (
-                <Timer
-                  startTime={startTime}
-                  isRunning={false}
-                  pausedAt={accumulatedTime}
-                />
-              ) : (
-                <Timer startTime={startTime} isRunning={true} />
-              )}
+
+              {/*
+                Bring back the original timer UI, but feed it a startTime that reflects
+                the live duration derived from attendance data (same logic as Timesheet).
+
+                We set: effectiveStartTime = now - liveDurationMs
+              */}
+              {(() => {
+                const d = getDisplayDuration(currentAttendance);
+                const effectiveStartTime = Date.now() - (d?.durationMs || 0);
+
+                // Pause work timer while on break.
+                if (status === "on-break" || d.isPaused) {
+                  return (
+                    <Timer
+                      startTime={effectiveStartTime}
+                      isRunning={false}
+                      pausedAt={d?.durationMs || 0}
+                    />
+                  );
+                }
+
+                return <Timer startTime={effectiveStartTime} isRunning={true} />;
+              })()}
             </motion.div>
           )}
         </AnimatePresence>
@@ -275,7 +380,7 @@ export default function Clock() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onClick={handleClockIn}
-                disabled={isLoading}
+                disabled={isLoading || hasClockedInToday}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="flex items-center justify-center gap-3">
@@ -283,6 +388,11 @@ export default function Clock() {
                     <>
                       <Spinner />
                       Clocking In...
+                    </>
+                  ) : hasClockedInToday ? (
+                    <>
+                      <PlayIcon className="w-5 h-5" />
+                      Already Clocked In Today
                     </>
                   ) : (
                     <>

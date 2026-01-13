@@ -4,6 +4,15 @@ import DashboardLayout from "../components/layout/DashboardLayout";
 import api from "../services/Api";
 import toast from "react-hot-toast";
 
+const urlBase64ToUint8Array = (base64String) => {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+};
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,13 +28,16 @@ export default function SettingsPage() {
     emailFrequency: "immediate",
   });
   const [newPassword, setNewPassword] = useState("");
+  const [pushPermission, setPushPermission] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const profileData = await api.user.getProfile();
-        console.log("Profile data:", profileData);
-        
+
         setProfile(profileData);
         setProfileForm({
           name: profileData.name || "",
@@ -63,9 +75,74 @@ export default function SettingsPage() {
     }
   };
 
+  // Uses the updated notifications API client (Api.js)
+  const ensurePushSubscription = async () => {
+    if (typeof window === "undefined") return;
+
+    if (!("Notification" in window)) {
+      setPushPermission("unsupported");
+      throw new Error("This browser does not support notifications");
+    }
+
+    if (!("serviceWorker" in navigator)) {
+      throw new Error("Service Worker not supported in this browser");
+    }
+
+    const permission = await Notification.requestPermission();
+    setPushPermission(permission);
+    if (permission !== "granted") {
+      throw new Error("Push permission not granted");
+    }
+
+    // Register SW (required for push)
+    const reg = await navigator.serviceWorker.register("/sw.js");
+
+    // Get VAPID public key from backend
+    const { publicKey } = await api.notifications.getVapidPublicKey();
+    if (!publicKey) {
+      throw new Error("Missing VAPID public key from backend");
+    }
+
+    // Subscribe (or reuse existing subscription)
+    const existing = await reg.pushManager.getSubscription();
+    const subscription =
+      existing ||
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      }));
+
+    // Save subscription to backend (upsert)
+    await api.notifications.subscribePush(subscription);
+
+    return subscription;
+  };
+
+  const handleSendDemoPush = async () => {
+    setPushBusy(true);
+    try {
+      await ensurePushSubscription();
+      await api.notifications.demoPush({
+        title: "Demo Push",
+        message: "If you can see this, Web Push works!",
+      });
+      toast.success("Demo push sent. Check your system notifications.");
+    } catch (error) {
+      toast.error(error.message || "Failed to send demo push");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   const handleUpdatePreferences = async (e) => {
     e.preventDefault();
     try {
+      // If enabling web push, ensure we have a valid browser subscription registered.
+      if (preferencesForm.notificationChannels.includes("webpush")) {
+        setPushBusy(true);
+        await ensurePushSubscription();
+      }
+
       const result = await api.user.updatePreferences(preferencesForm);
       // Update local state with the returned preferences
       if (result.preferences) {
@@ -78,6 +155,8 @@ export default function SettingsPage() {
       toast.success("Preferences updated");
     } catch (error) {
       toast.error(error.message || "Failed to update preferences");
+    } finally {
+      setPushBusy(false);
     }
   };
 
@@ -327,6 +406,11 @@ export default function SettingsPage() {
                           ...preferencesForm,
                           notificationChannels: channels,
                         });
+
+                        // Best-effort: update UI permission status when enabling.
+                        if (e.target.checked && typeof Notification !== "undefined") {
+                          Notification.requestPermission().then((p) => setPushPermission(p));
+                        }
                       }}
                       className="sr-only peer"
                     />
@@ -340,6 +424,25 @@ export default function SettingsPage() {
                     Push Notifications
                   </span>
                 </label>
+
+                <div className="w-full text-xs text-white/40 -mt-2">
+                  Push permission: <span className="text-white/60">{pushPermission}</span>
+                </div>
+
+                <div className="w-full pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSendDemoPush}
+                    disabled={pushBusy}
+                    className="bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {pushBusy ? "Working..." : "Send Demo Push"}
+                  </button>
+                  <p className="text-xs text-white/40 mt-2">
+                    Sends a test push via <span className="text-white/60">POST /api/notifications/demo-push</span>.
+                    Make sure you have enabled Push Notifications and your backend has VAPID keys.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -369,9 +472,10 @@ export default function SettingsPage() {
             <div className="pt-2">
               <button
                 type="submit"
-                className="bg-brand-red hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+                disabled={pushBusy}
+                className="bg-brand-red hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Preferences
+                {pushBusy ? "Saving..." : "Save Preferences"}
               </button>
             </div>
           </form>

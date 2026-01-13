@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import api from "../services/Api";
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
+import { formatDateSA, formatTimeSA } from "../utils/time";
 
 export default function Timesheet() {
   const [entries, setEntries] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [loading, setLoading] = useState(true);
+  const [, forceTick] = useState(0);
 
   // Generate year options (current year and 2 years back)
   const currentYear = new Date().getFullYear();
@@ -33,7 +35,7 @@ export default function Timesheet() {
     setLoading(true);
     try {
       const params = {};
-      
+
       // Calculate date range based on selected month/year
       if (selectedMonth && selectedYear) {
         const year = parseInt(selectedYear);
@@ -41,7 +43,9 @@ export default function Timesheet() {
         const startDate = `${year}-${selectedMonth}-01`;
         // Get last day of month
         const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${selectedMonth}-${lastDay.toString().padStart(2, '0')}`;
+        const endDate = `${year}-${selectedMonth}-${lastDay
+          .toString()
+          .padStart(2, "0")}`;
         params.startDate = startDate;
         params.endDate = endDate;
       } else if (selectedYear && !selectedMonth) {
@@ -49,24 +53,26 @@ export default function Timesheet() {
         params.startDate = `${selectedYear}-01-01`;
         params.endDate = `${selectedYear}-12-31`;
       }
-      
-      console.log("Fetching attendance history with params:", params);
+
       const response = await api.attendance.getHistory(params);
-      console.log("Attendance history response:", response);
-      
+
       // Handle both response formats: { data: [] } or direct array
-      const entriesArray = Array.isArray(response?.data) 
-        ? response.data 
-        : Array.isArray(response) 
-          ? response 
-          : [];
-      
-      console.log("Parsed entries array:", entriesArray);
-      if (entriesArray.length > 0) {
-        console.log("First entry sample:", entriesArray[0]);
-      }
-      
-      setEntries(entriesArray);
+      const entriesArray = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      // Defensive filtering: ignore clearly-invalid placeholder records
+      // (e.g. epoch/1970 dates) which can show up from backend seed/default values.
+      const sanitizedEntries = entriesArray.filter((entry) => {
+        const clockIn = entry?.clockIn ? new Date(entry.clockIn) : null;
+        if (!clockIn || Number.isNaN(clockIn.getTime())) return false;
+        // Anything before year 2000 is almost certainly a placeholder (epoch-like).
+        return clockIn.getFullYear() >= 2000;
+      });
+
+      setEntries(sanitizedEntries);
     } catch (error) {
       console.error("Failed to load timesheet:", error);
       toast.error("Failed to load timesheet");
@@ -79,60 +85,71 @@ export default function Timesheet() {
     loadHistory();
   }, [selectedMonth, selectedYear]);
 
-  const formatDuration = (record) => {
-    if (!record.clockOut) return "In Progress";
-    
-    // Use durationFormatted if available (from backend)
-    if (record.durationFormatted) {
-      return record.durationFormatted;
-    }
-    
-    // If duration is a number (milliseconds), format it
-    if (typeof record.duration === "number") {
-      const totalSeconds = Math.floor(record.duration / 1000);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      return `${hours}h ${minutes}m`;
-    }
-    
-    // If duration is already a string, return it
-    if (typeof record.duration === "string") {
-      return record.duration;
-    }
-    
-    return "0h 0m";
+  // Optional: make open-session durations tick live
+  useEffect(() => {
+    const hasOpen = Array.isArray(entries)
+      ? entries.some((e) => !e?.clockOut && e?.isClosed === false)
+      : false;
+
+    if (!hasOpen) return;
+
+    const id = setInterval(() => forceTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [entries]);
+
+  const formatHMS = (ms) => {
+    const totalSeconds = Math.max(0, Math.floor((ms || 0) / 1000));
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h}h ${m}m ${s}s`;
   };
 
-  const totalHours = Array.isArray(entries) ? entries.reduce((acc, entry) => {
-    if (entry.duration) {
-      console.log("Processing duration:", entry.duration, "Type:", typeof entry.duration);
-      
-      // Handle duration as milliseconds (number)
-      if (typeof entry.duration === "number") {
-        const hours = entry.duration / (1000 * 60 * 60);
-        return acc + hours;
-      }
-      
-      // Handle duration as formatted string like "8h 30m" or "8h 30m 0s"
-      if (typeof entry.duration === "string") {
-        const parts = entry.duration.split(" ");
-        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-        return acc + hours + minutes / 60;
-      }
+  const getDurationForUI = (row) => {
+    const clockInISO = row?.clockIn;
+    const clockOutISO = row?.clockOut;
+    const closed = Boolean(clockOutISO) || row?.isClosed === true;
+
+    // Closed -> use backend
+    if (closed) {
+      const durationMs = typeof row?.duration === "number" ? row.duration : 0;
+      return {
+        durationMs,
+        durationLabel: row?.durationFormatted || formatHMS(durationMs),
+        source: "backend",
+      };
     }
-    
-    // Try durationFormatted if duration is not usable
-    if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
-      console.log("Using durationFormatted:", entry.durationFormatted);
-      const parts = entry.durationFormatted.split(" ");
-      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-      return acc + hours + minutes / 60;
+
+    // Open -> compute live
+    if (!clockInISO) {
+      return { durationMs: 0, durationLabel: formatHMS(0), source: "live" };
     }
-    
-    return acc;
-  }, 0) : 0;
+
+    const clockInMs = new Date(clockInISO).getTime();
+    const breaksMs =
+      typeof row?.breakDuration === "number" ? row.breakDuration : 0;
+    const liveMs = Number.isNaN(clockInMs)
+      ? 0
+      : Math.max(0, Date.now() - clockInMs - breaksMs);
+
+    return {
+      durationMs: liveMs,
+      durationLabel: formatHMS(liveMs),
+      source: "live",
+    };
+  };
+
+  const formatDuration = (record) => {
+    const d = getDurationForUI(record);
+    return d.source === "live" ? `${d.durationLabel} (Live)` : d.durationLabel;
+  };
+
+  const totalHours = Array.isArray(entries)
+    ? entries.reduce((acc, entry) => {
+        const d = getDurationForUI(entry);
+        return acc + d.durationMs / (1000 * 60 * 60);
+      }, 0)
+    : 0;
 
   const clearFilters = () => {
     setSelectedMonth("");
@@ -143,7 +160,7 @@ export default function Timesheet() {
   useEffect(() => {
     const now = new Date();
     setSelectedYear(now.getFullYear().toString());
-    setSelectedMonth((now.getMonth() + 1).toString().padStart(2, '0'));
+    setSelectedMonth((now.getMonth() + 1).toString().padStart(2, "0"));
   }, []);
 
   if (loading) return <div>Loading timesheet...</div>;
@@ -231,7 +248,9 @@ export default function Timesheet() {
         </div>
         {selectedMonth && selectedYear && (
           <p className="text-sm text-white/40 mt-3">
-            Showing entries for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}
+            Showing entries for{" "}
+            {months.find((m) => m.value === selectedMonth)?.label}{" "}
+            {selectedYear}
           </p>
         )}
       </motion.div>
@@ -275,36 +294,22 @@ export default function Timesheet() {
                     className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="table-cell font-medium text-white">
-                      {new Date(entry.clockIn).toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatDateSA(entry.clockIn) || "-"}
                     </td>
                     <td className="table-cell">
-                      {new Date(entry.clockIn).toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatTimeSA(entry.clockIn) || "-"}
                     </td>
                     <td className="table-cell">
-                      {entry.clockOut
-                        ? new Date(entry.clockOut).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                      {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
                     </td>
                     <td className="table-cell">
-                      <span
-                        className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
-                          entry.clockOut
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-amber-500/10 text-amber-400"
-                        }`}
-                      >
-                        {formatDuration(entry)}
-                      </span>
+                      {entry.clockOut ? (
+                        <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                          {entry.durationFormatted || formatDuration(entry)}
+                        </span>
+                      ) : (
+                        <span className="text-white/30">-</span>
+                      )}
                     </td>
                     <td className="table-cell text-white/50 max-w-[200px] truncate">
                       {entry.notes || "-"}
@@ -333,38 +338,20 @@ export default function Timesheet() {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-white">
-                    {new Date(entry.clockIn).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatDateSA(entry.clockIn) || "-"}
                   </span>
-                  <span
-                    className={`inline-flex px-2 py-1 rounded-md text-xs font-medium ${
-                      entry.clockOut
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-amber-500/10 text-amber-400"
-                    }`}
-                  >
-                    {formatDuration(entry)}
-                  </span>
+                  {entry.clockOut ? (
+                    <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                      {entry.durationFormatted || formatDuration(entry)}
+                    </span>
+                  ) : (
+                    <span className="text-white/30">-</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-white/60">
+                  <span>In: {formatTimeSA(entry.clockIn) || "-"}</span>
                   <span>
-                    In:{" "}
-                    {new Date(entry.clockIn).toLocaleTimeString("en-US", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                  <span>
-                    Out:{" "}
-                    {entry.clockOut
-                      ? new Date(entry.clockOut).toLocaleTimeString("en-US", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "-"}
+                    Out: {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
                   </span>
                 </div>
                 {entry.notes && (

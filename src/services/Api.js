@@ -1,15 +1,4 @@
-/**
- * Erisn Clock-In API Client
- * 
- * This file provides a complete API client for the frontend.
- * Copy this to your frontend project and configure the BASE_URL.
- * 
- * Usage:
- *   import api from './api';
- *   const { data } = await api.auth.login({ email, password });
- */
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 // ==================== TOKEN MANAGEMENT ====================
 
@@ -18,37 +7,37 @@ let authToken = null;
 export const setToken = (token) => {
   authToken = token;
   if (token) {
-    localStorage.setItem('token', token);
+    localStorage.setItem("token", token);
   } else {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
   }
 };
 
 export const getToken = () => {
   if (!authToken) {
-    authToken = localStorage.getItem('token');
+    authToken = localStorage.getItem("token");
   }
   return authToken;
 };
 
 export const clearToken = () => {
   authToken = null;
-  localStorage.removeItem('token');
+  localStorage.removeItem("token");
 };
 
 // ==================== HTTP CLIENT ====================
 
 const request = async (endpoint, options = {}) => {
   const url = `${BASE_URL}${endpoint}`;
-  
+
   const headers = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...options.headers,
   };
 
   const token = getToken();
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const config = {
@@ -56,15 +45,15 @@ const request = async (endpoint, options = {}) => {
     headers,
   };
 
-  if (options.body && typeof options.body === 'object') {
+  if (options.body && typeof options.body === "object") {
     config.body = JSON.stringify(options.body);
   }
 
   try {
     const response = await fetch(url, config);
-    
-    const contentType = response.headers.get('content-type');
-    if (contentType && !contentType.includes('application/json')) {
+
+    const contentType = response.headers.get("content-type");
+    if (contentType && !contentType.includes("application/json")) {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -74,7 +63,7 @@ const request = async (endpoint, options = {}) => {
     const data = await response.json();
 
     if (!response.ok) {
-      const error = new Error(data.message || data.error || 'Request failed');
+      const error = new Error(data.message || data.error || "Request failed");
       error.status = response.status;
       error.data = data;
       throw error;
@@ -82,123 +71,181 @@ const request = async (endpoint, options = {}) => {
 
     return data;
   } catch (error) {
-    if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-      throw new Error('Network error. Please check your connection.');
+    if (error.name === "TypeError" && error.message === "Failed to fetch") {
+      throw new Error("Network error. Please check your connection.");
     }
     throw error;
   }
 };
 
+// ==================== WEB PUSH HELPERS ====================
+
+/**
+ * Convert a base64url string into Uint8Array for PushManager.subscribe.
+ */
+export const urlBase64ToUint8Array = (base64String) => {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+};
+
+/**
+ * Fetch VAPID public key from backend.
+ * Endpoint: GET /api/notifications/vapid-public-key
+ */
+export const fetchVapidPublicKey = async () => {
+  const res = await request("/notifications/vapid-public-key", {
+    method: "GET",
+  });
+  // backend returns: { ok: true, publicKey }
+  return res.publicKey;
+};
+
+/**
+ * Register a Service Worker.
+ * Default path assumes your frontend serves the SW from the web root.
+ */
+export const registerServiceWorker = async (swPath = "/sw.js") => {
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("Service Worker is not supported in this browser.");
+  }
+  return navigator.serviceWorker.register(swPath);
+};
+
+/**
+ * Ensure browser notification permission.
+ * Returns 'granted' | 'denied' | 'default'
+ */
+export const ensureNotificationPermission = async () => {
+  if (!("Notification" in window)) {
+    throw new Error("Notifications are not supported in this browser.");
+  }
+
+  if (Notification.permission === "granted") return "granted";
+  const permission = await Notification.requestPermission();
+  return permission;
+};
+
+/**
+ * Create or reuse a PushSubscription and register it with the backend.
+ *
+ * Recommended frontend flow:
+ * 1) await api.notifications.enablePush({ swPath: '/sw.js' })
+ * 2) then you can call api.notifications.demoPush()
+ */
+export const enablePush = async ({ swPath = "/sw.js" } = {}) => {
+  const permission = await ensureNotificationPermission();
+  if (permission !== "granted") {
+    throw new Error("Push permission not granted.");
+  }
+
+  const registration = await registerServiceWorker(swPath);
+
+  const publicKey = await fetchVapidPublicKey();
+  const applicationServerKey = urlBase64ToUint8Array(publicKey);
+
+  // Reuse subscription if it already exists
+  const existing = await registration.pushManager.getSubscription();
+  const subscription =
+    existing ||
+    (await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey,
+    }));
+
+  // IMPORTANT:
+  // - Some backends expect the raw subscription object, not { subscription: ... }.
+  // - If payload shape doesn't match, demo push can still work but scheduled pushes won't
+  //   because the subscription is never correctly persisted on the user.
+  await request("/notifications/subscribe", {
+    method: "POST",
+    body: subscription,
+  });
+
+  return { subscription, permission };
+};
+
 // ==================== AUTH API ====================
 
 export const auth = {
-  register: (data) => request('/auth/register', { method: 'POST', body: data }),
-  verifyOtp: (data) => request('/auth/verify-email-otp', { method: 'POST', body: data }),
-  resendOtp: (data) => request('/auth/resend-otp', { method: 'POST', body: data }),
+  register: (data) => request("/auth/register", { method: "POST", body: data }),
+  verifyOtp: (data) =>
+    request("/auth/verify-email-otp", { method: "POST", body: data }),
+  resendOtp: (data) =>
+    request("/auth/resend-otp", { method: "POST", body: data }),
   login: async (data) => {
-    const response = await request('/auth/login', { method: 'POST', body: data });
+    const response = await request("/auth/login", {
+      method: "POST",
+      body: data,
+    });
     if (response.token) setToken(response.token);
     return response;
   },
   logout: async () => {
-    const response = await request('/auth/logout', { method: 'GET' });
+    const response = await request("/auth/logout", { method: "GET" });
     clearToken();
     return response;
   },
-  forgotPassword: (data) => request('/auth/forgot-password', { method: 'POST', body: data }),
-  resetPassword: (token, data) => request(`/auth/reset-password/${token}`, { method: 'POST', body: data }),
+  forgotPassword: (data) =>
+    request("/auth/forgot-password", { method: "POST", body: data }),
+  resetPassword: (token, data) =>
+    request(`/auth/reset-password/${token}`, { method: "POST", body: data }),
 };
 
 // ==================== USER API ====================
 
 export const user = {
-  getProfile: () => request('/users/profile', { method: 'GET' }),
-  updateProfile: (data) => request('/users/profile', { method: 'PUT', body: data }),
-  deleteAccount: () => request('/users/profile', { method: 'DELETE' }),
-  getPreferences: () => request('/users/preferences', { method: 'GET' }),
-  updatePreferences: (data) => request('/users/preferences', { method: 'PUT', body: data }),
+  getProfile: () => request("/users/profile", { method: "GET" }),
+  updateProfile: (data) =>
+    request("/users/profile", { method: "PUT", body: data }),
+  deleteAccount: () => request("/users/profile", { method: "DELETE" }),
+  getPreferences: () => request("/users/preferences", { method: "GET" }),
+  updatePreferences: (data) =>
+    request("/users/preferences", { method: "PUT", body: data }),
 };
 
 // ==================== ATTENDANCE API ====================
 
 export const attendance = {
-  /**
-   * Get current clock status
-   * @returns {Promise} - { success, status, attendanceStatus, type, data }
-   */
-  getStatus: () => request('/attendance/status', { method: 'GET' }),
-
-  /**
-   * Get today's attendance record
-   * @returns {Promise} - { success, data, status }
-   */
-  getToday: () => request('/attendance/today', { method: 'GET' }),
-
-  /**
-   * Clock in (only once per day, before 17:00, workdays only)
-   * @param {Object} data - { notes? }
-   * @returns {Promise} - { success, message, data }
-   */
-  clockIn: (data = {}) => request('/attendance/clock-in', { method: 'POST', body: data }),
-
-  /**
-   * Clock out
-   * @param {Object} data - { notes? }
-   * @returns {Promise} - { success, message, data }
-   */
-  clockOut: (data = {}) => request('/attendance/clock-out', { method: 'POST', body: data }),
-
-  /**
-   * Start break (one per day)
-   * @returns {Promise} - { success, message, data }
-   */
-  breakIn: () => request('/attendance/break-in', { method: 'POST', body: {} }),
-
-  /**
-   * End break
-   * @returns {Promise} - { success, message, data }
-   */
-  breakOut: () => request('/attendance/break-out', { method: 'POST', body: {} }),
-
-  /**
-   * Get attendance history
-   * @param {Object} params - { startDate?, endDate?, type?, attendanceStatus?, page?, limit? }
-   * @returns {Promise} - { success, data, pagination }
-   */
+  getStatus: () => request("/attendance/status", { method: "GET" }),
+  getToday: () => request("/attendance/today", { method: "GET" }),
+  clockIn: (data = {}) =>
+    request("/attendance/clock-in", { method: "POST", body: data }),
+  clockOut: (data = {}) =>
+    request("/attendance/clock-out", { method: "POST", body: data }),
+  breakIn: () => request("/attendance/break-in", { method: "POST", body: {} }),
+  breakOut: () =>
+    request("/attendance/break-out", { method: "POST", body: {} }),
   getHistory: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/attendance/history${query ? `?${query}` : ''}`, { method: 'GET' });
+    return request(`/attendance/history${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
   },
-
-  /**
-   * Get all attendance (admin only)
-   * @param {Object} params - { userId?, startDate?, endDate?, type?, attendanceStatus?, userName?, page?, limit? }
-   * @returns {Promise} - { success, data, pagination }
-   */
   getAll: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/attendance/all${query ? `?${query}` : ''}`, { method: 'GET' });
+    return request(`/attendance/all${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
   },
-
-  /**
-   * Get attendance summary (admin only)
-   * @param {Object} params - { startDate?, endDate?, userId? }
-   * @returns {Promise} - { success, data: { present, absent, weekend, holiday, total } }
-   */
   getSummary: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/attendance/summary${query ? `?${query}` : ''}`, { method: 'GET' });
+    return request(`/attendance/summary${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
   },
-
-  /**
-   * Export my attendance (user)
-   * @param {Object} params - { year, month, type: 'csv'|'pdf' }
-   * @returns {Promise<Response>} - File response
-   */
   exportMy: async (params) => {
     const query = new URLSearchParams(params).toString();
     const response = await fetch(`${BASE_URL}/attendance/export/my?${query}`, {
-      headers: { Authorization: `Bearer ${getToken()}` }
+      headers: { Authorization: `Bearer ${getToken()}` },
     });
     if (!response.ok) {
       const error = await response.json();
@@ -206,16 +253,10 @@ export const attendance = {
     }
     return response;
   },
-
-  /**
-   * Export monthly attendance (admin only)
-   * @param {Object} params - { year, month, type: 'csv'|'pdf', userId? }
-   * @returns {Promise<Response>} - File response
-   */
   exportMonthly: async (params) => {
     const query = new URLSearchParams(params).toString();
     const response = await fetch(`${BASE_URL}/attendance/export?${query}`, {
-      headers: { Authorization: `Bearer ${getToken()}` }
+      headers: { Authorization: `Bearer ${getToken()}` },
     });
     if (!response.ok) {
       const error = await response.json();
@@ -223,18 +264,14 @@ export const attendance = {
     }
     return response;
   },
-
-  /**
-   * Export individual user attendance (admin only)
-   * @param {string} userId - User ID
-   * @param {Object} params - { year, month, type: 'csv'|'pdf' }
-   * @returns {Promise<Response>} - File response
-   */
   exportUser: async (userId, params) => {
     const query = new URLSearchParams(params).toString();
-    const response = await fetch(`${BASE_URL}/attendance/export/${userId}?${query}`, {
-      headers: { Authorization: `Bearer ${getToken()}` }
-    });
+    const response = await fetch(
+      `${BASE_URL}/attendance/export/${userId}?${query}`,
+      {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      }
+    );
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message);
@@ -246,11 +283,13 @@ export const attendance = {
 // ==================== REPORTS API ====================
 
 export const reports = {
-  submit: (data) => request('/reports', { method: 'POST', body: data }),
-  update: (id, data) => request(`/reports/${id}`, { method: 'PUT', body: data }),
-  getMyReports: () => request('/reports', { method: 'GET' }),
-  getById: (id) => request(`/reports/${id}`, { method: 'GET' }),
-  exportMyReports: (type) => request(`/reports/export/data?type=${type}`, { method: 'GET' }),
+  submit: (data) => request("/reports", { method: "POST", body: data }),
+  update: (id, data) =>
+    request(`/reports/${id}`, { method: "PUT", body: data }),
+  getMyReports: () => request("/reports", { method: "GET" }),
+  getById: (id) => request(`/reports/${id}`, { method: "GET" }),
+  exportMyReports: (type) =>
+    request(`/reports/export/data?type=${type}`, { method: "GET" }),
 };
 
 // ==================== NOTIFICATIONS API ====================
@@ -258,12 +297,37 @@ export const reports = {
 export const notifications = {
   getAll: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/notifications${query ? `?${query}` : ''}`, { method: 'GET' });
+    return request(`/notifications${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
   },
-  getUnreadCount: () => request('/notifications/unread-count', { method: 'GET' }),
-  markAsRead: (id) => request(`/notifications/${id}/read`, { method: 'PATCH' }),
-  markAllAsRead: () => request('/notifications/mark-all-read', { method: 'PATCH' }),
-  subscribePush: (subscription) => request('/notifications/subscribe', { method: 'POST', body: { subscription } }),
+  getUnreadCount: () =>
+    request("/notifications/unread-count", { method: "GET" }),
+  markAsRead: (id) => request(`/notifications/${id}/read`, { method: "PATCH" }),
+  markAllAsRead: () =>
+    request("/notifications/mark-all-read", { method: "PATCH" }),
+
+  subscribePush: (subscription) =>
+    request("/notifications/subscribe", {
+      method: "POST",
+      body: subscription,
+    }),
+
+  getVapidPublicKey: () =>
+    request("/notifications/vapid-public-key", { method: "GET" }),
+
+  /**
+   * One-call helper to fully enable push:
+   * - requests browser permission
+   * - registers service worker
+   * - subscribes and sends subscription to backend
+   */
+  enablePush: (opts) => enablePush(opts),
+
+  testSend: (data) =>
+    request("/notifications/test", { method: "POST", body: data }),
+  demoPush: (data = {}) =>
+    request("/notifications/demo-push", { method: "POST", body: data }),
 };
 
 // ==================== ADMIN API ====================
@@ -271,28 +335,35 @@ export const notifications = {
 export const admin = {
   getReports: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/admin/reports${query ? `?${query}` : ''}`, { method: 'GET' });
+    return request(`/admin/reports${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
   },
   exportReports: (params) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/admin/reports/export?${query}`, { method: 'GET' });
+    return request(`/admin/reports/export?${query}`, { method: "GET" });
   },
-  approveReport: (id, data = {}) => request(`/admin/reports/${id}/approve`, { method: 'POST', body: data }),
-  rejectReport: (id, data) => request(`/admin/reports/${id}/reject`, { method: 'POST', body: data }),
-  markReportReviewed: (id, data = {}) => request(`/admin/reports/${id}/review`, { method: 'POST', body: data }),
+  approveReport: (id, data = {}) =>
+    request(`/admin/reports/${id}/approve`, { method: "POST", body: data }),
+  rejectReport: (id, data) =>
+    request(`/admin/reports/${id}/reject`, { method: "POST", body: data }),
+  markReportReviewed: (id, data = {}) =>
+    request(`/admin/reports/${id}/review`, { method: "POST", body: data }),
   getUsers: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/admin/users${query ? `?${query}` : ''}`, { method: 'GET' });
+    return request(`/admin/users${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
   },
-  getGraduates: () => request('/users/graduates', { method: 'GET' }),
-  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  getGraduates: () => request("/users/graduates", { method: "GET" }),
+  deleteUser: (id) => request(`/users/${id}`, { method: "DELETE" }),
 };
 
 // ==================== HEALTH API ====================
 
 export const health = {
-  check: () => request('/health', { method: 'GET' }),
-  ready: () => request('/ready', { method: 'GET' }),
+  check: () => request("/health", { method: "GET" }),
+  ready: () => request("/ready", { method: "GET" }),
 };
 
 // ==================== DEFAULT EXPORT ====================
@@ -308,6 +379,13 @@ const api = {
   setToken,
   getToken,
   clearToken,
+
+  // push helpers also exposed at top-level for convenience
+  urlBase64ToUint8Array,
+  fetchVapidPublicKey,
+  registerServiceWorker,
+  ensureNotificationPermission,
+  enablePush,
 };
 
 export default api;

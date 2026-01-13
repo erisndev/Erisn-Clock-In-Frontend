@@ -42,13 +42,27 @@ export default function NotificationsPage() {
   }, []);
 
   const handleMarkAsRead = async (id) => {
+    // Optimistically update UI first so the red dot/border disappears immediately.
+    // Backend stores this as `isRead` (not `read`). We normalize on the frontend.
+    const wasUnread = notifications.find(
+      (n) => n._id === id && !(n.read || n.isRead)
+    );
+
+    setNotifications((prev) =>
+      prev.map((n) => (n._id === id ? { ...n, read: true, isRead: true } : n))
+    );
+    if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
+
     try {
       await api.notifications.markAsRead(id);
-      setNotifications(
-        notifications.map((n) => (n._id === id ? { ...n, read: true } : n))
-      );
-      setUnreadCount(Math.max(0, unreadCount - 1));
     } catch (error) {
+      // Revert optimistic update if the API call fails
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n._id === id ? { ...n, read: false, isRead: false } : n
+        )
+      );
+      if (wasUnread) setUnreadCount((prev) => prev + 1);
       toast.error("Failed to mark as read");
     }
   };
@@ -56,7 +70,9 @@ export default function NotificationsPage() {
   const handleMarkAllRead = async () => {
     try {
       await api.notifications.markAllAsRead();
-      setNotifications(notifications.map((n) => ({ ...n, read: true })));
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, read: true, isRead: true }))
+      );
       setUnreadCount(0);
       toast.success("All notifications marked as read");
     } catch (error) {
@@ -90,7 +106,9 @@ export default function NotificationsPage() {
             </h1>
             <p className="text-white/50 mt-1">
               {unreadCount > 0
-                ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+                ? `You have ${unreadCount} unread notification${
+                    unreadCount > 1 ? "s" : ""
+                  }`
                 : "You're all caught up!"}
             </p>
           </div>
@@ -123,7 +141,8 @@ export default function NotificationsPage() {
               No notifications
             </h3>
             <p className="text-white/50">
-              You'll see notifications here when there's activity on your account
+              You'll see notifications here when there's activity on your
+              account
             </p>
           </motion.div>
         ) : (
@@ -134,9 +153,11 @@ export default function NotificationsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
-                onClick={() => !notif.read && handleMarkAsRead(notif._id)}
+                onClick={() =>
+                  !(notif.read || notif.isRead) && handleMarkAsRead(notif._id)
+                }
                 className={`glass-card p-4 cursor-pointer transition-all ${
-                  notif.read
+                  notif.read || notif.isRead
                     ? "opacity-60 hover:opacity-80"
                     : "border-l-4 border-l-brand-red hover:bg-white/[0.03]"
                 }`}
@@ -149,18 +170,22 @@ export default function NotificationsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <h3
                         className={`font-semibold ${
-                          notif.read ? "text-white/70" : "text-white"
+                          notif.read || notif.isRead
+                            ? "text-white/70"
+                            : "text-white"
                         }`}
                       >
                         {notif.title}
                       </h3>
-                      {!notif.read && (
+                      {!(notif.read || notif.isRead) && (
                         <span className="flex-shrink-0 w-2 h-2 rounded-full bg-brand-red" />
                       )}
                     </div>
                     <p
                       className={`text-sm mt-1 ${
-                        notif.read ? "text-white/40" : "text-white/60"
+                        notif.read || notif.isRead
+                          ? "text-white/40"
+                          : "text-white/60"
                       }`}
                     >
                       {notif.message}

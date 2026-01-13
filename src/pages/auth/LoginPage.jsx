@@ -17,8 +17,6 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    console.log("Login payload:", { email, password });
-
     try {
       const user = await login(email, password);
 

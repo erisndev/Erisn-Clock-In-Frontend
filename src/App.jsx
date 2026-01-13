@@ -1,8 +1,4 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import ScrollToTop from "./components/ScrollToTop";
 import { AuthProvider } from "./context/AuthContext";
@@ -31,7 +27,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import AdminReportsPage from "./pages/Admin/AdminReportsPage";
 import AdminGraduatesPage from "./pages/Admin/AdminGraduatesPage";
 import AdminGraduateDetailPage from "./pages/Admin/AdminGraduateDetailPage";
-import AdminExport from "./pages/admin/AdminExport";
+import AdminExport from "./pages/Admin/AdminExport";
 
 function App() {
   return (
@@ -48,106 +44,109 @@ function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/verify-otp" element={<VerifyOtp />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route
+                path="/reset-password/:token"
+                element={<ResetPassword />}
+              />
 
               {/* Protected graduate routes */}
-              <Route 
-                path="/dashboard" 
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <GraduateDashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/clock" 
+              <Route
+                path="/clock"
                 element={
                   <ProtectedRoute>
                     <GraduateClockPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/attendance" 
+              <Route
+                path="/attendance"
                 element={
                   <ProtectedRoute>
                     <GraduateTimesheetPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/reports" 
+              <Route
+                path="/reports"
                 element={
                   <ProtectedRoute>
                     <GraduateReportsPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/reports/new" 
+              <Route
+                path="/reports/new"
                 element={
                   <ProtectedRoute>
                     <NewReport />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/settings" 
+              <Route
+                path="/settings"
                 element={
                   <ProtectedRoute>
                     <Settings />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/notifications" 
+              <Route
+                path="/notifications"
                 element={
                   <ProtectedRoute>
                     <Notifications />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Protected admin routes */}
-              <Route 
-                path="/admin/dashboard" 
+              <Route
+                path="/admin/dashboard"
                 element={
                   <ProtectedRoute adminOnly>
                     <AdminDashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin/reports" 
+              <Route
+                path="/admin/reports"
                 element={
                   <ProtectedRoute adminOnly>
                     <AdminReportsPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin/graduates" 
+              <Route
+                path="/admin/graduates"
                 element={
                   <ProtectedRoute adminOnly>
                     <AdminGraduatesPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin/graduates/:id" 
+              <Route
+                path="/admin/graduates/:id"
                 element={
                   <ProtectedRoute adminOnly>
                     <AdminGraduateDetailPage />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin/export" 
+              <Route
+                path="/admin/export"
                 element={
                   <ProtectedRoute adminOnly>
                     <AdminExport />
                   </ProtectedRoute>
-                } 
+                }
               />
 
               {/* Default redirect */}

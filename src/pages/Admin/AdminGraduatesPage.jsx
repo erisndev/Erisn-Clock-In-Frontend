@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
@@ -22,24 +22,22 @@ export default function AdminGraduatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("All Departments");
   const navigate = useNavigate();
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate calls (React Strict Mode double-invokes effects)
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     const loadGraduates = async () => {
       try {
-        // Try the graduates endpoint first, fall back to users endpoint
-        let grads = [];
-        try {
-          const response = await api.admin.getGraduates();
-          grads = Array.isArray(response) ? response : (response.data || []);
-        } catch {
-          // Fall back to getUsers with role filter
-          const response = await api.admin.getUsers({ role: "graduate" });
-          grads = response.data || [];
-        }
+        // Use getUsers with role filter directly to avoid multiple API calls
+        const response = await api.admin.getUsers({ role: "graduate" });
+        const grads = response.data || [];
         setGraduates(grads);
       } catch (error) {
         console.error("Failed to load graduates:", error);
-        toast.error("Failed to load graduates");
+        toast.error(error.message || "Failed to load graduates");
       } finally {
         setLoading(false);
       }

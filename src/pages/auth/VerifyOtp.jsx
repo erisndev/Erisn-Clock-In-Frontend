@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/Api";
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
 
 export default function VerifyOtp() {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ export default function VerifyOtp() {
           <h1 className="text-3xl font-bold text-white mb-2">
             Verify Your Email
           </h1>
-          <p className="text-white/50">Enter the OTP sent to your email</p>
+          <p className="text-white/50">Enter the OTP sent to your email!</p>
         </div>
 
         <div className="glass-card p-8">
