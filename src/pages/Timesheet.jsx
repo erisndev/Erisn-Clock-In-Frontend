@@ -144,12 +144,15 @@ export default function Timesheet() {
     return d.source === "live" ? `${d.durationLabel} (Live)` : d.durationLabel;
   };
 
-  const totalHours = Array.isArray(entries)
-    ? entries.reduce((acc, entry) => {
-        const d = getDurationForUI(entry);
-        return acc + d.durationMs / (1000 * 60 * 60);
-      }, 0)
-    : 0;
+  // Totals should match what is actually shown in the table (closed sessions only)
+  const closedEntries = Array.isArray(entries)
+    ? entries.filter((e) => Boolean(e?.clockOut) || e?.isClosed === true)
+    : [];
+
+  const totalHours = closedEntries.reduce((acc, entry) => {
+    const d = getDurationForUI(entry);
+    return acc + d.durationMs / (1000 * 60 * 60);
+  }, 0);
 
   const clearFilters = () => {
     setSelectedMonth("");
@@ -196,8 +199,8 @@ export default function Timesheet() {
         >
           <span className="stat-label">Avg Hours/Day</span>
           <span className="stat-value">
-            {entries.length > 0
-              ? (totalHours / entries.length).toFixed(1)
+            {closedEntries.length > 0
+              ? (totalHours / closedEntries.length).toFixed(1)
               : "0"}
           </span>
         </motion.div>

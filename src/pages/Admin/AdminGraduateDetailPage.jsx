@@ -101,40 +101,36 @@ export default function AdminGraduateDetailPage() {
     }
   }, [id]);
 
+  // Match Graduate Timesheet totals logic:
+  // - Count only closed sessions
+  // - Prefer backend numeric duration (ms)
+  // - Fallback to parsing formatted strings
+  const parseDurationToHours = (entry) => {
+    if (typeof entry?.duration === "number") {
+      return entry.duration / (1000 * 60 * 60);
+    }
+
+    const formatted =
+      (typeof entry?.durationFormatted === "string" && entry.durationFormatted) ||
+      (typeof entry?.duration === "string" && entry.duration) ||
+      "";
+
+    if (formatted) {
+      const parts = formatted.split(" ");
+      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+      return hours + minutes / 60;
+    }
+
+    return 0;
+  };
+
   const totalHours = useMemo(() => {
-    return timesheet.reduce((acc, entry) => {
-      // Handle duration as number (milliseconds)
-      if (typeof entry.duration === "number") {
-        return acc + entry.duration / (1000 * 60 * 60);
-      }
+    const closedEntries = Array.isArray(timesheet)
+      ? timesheet.filter((e) => Boolean(e?.clockOut) || e?.isClosed === true)
+      : [];
 
-      // Handle duration as formatted string like "8h 30m"
-      if (typeof entry.duration === "string") {
-        const parts = entry.duration.split(" ");
-        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-        return acc + hours + minutes / 60;
-      }
-
-      // Try durationFormatted
-      if (
-        entry.durationFormatted &&
-        typeof entry.durationFormatted === "string"
-      ) {
-        const parts = entry.durationFormatted.split(" ");
-        const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-        const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-        return acc + hours + minutes / 60;
-      }
-
-      // Calculate from clockIn/clockOut
-      if (entry.clockOut && entry.clockIn) {
-        const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
-        return acc + ms / 3600000;
-      }
-
-      return acc;
-    }, 0);
+    return closedEntries.reduce((acc, entry) => acc + parseDurationToHours(entry), 0);
   }, [timesheet]);
 
   // Generate attendance data for all weekdays in selected month
@@ -164,14 +160,11 @@ export default function AdminGraduateDetailPage() {
 
       if (entries.length > 0) {
         // Has clock-in entries
+        // Match timesheet rules: only include closed sessions
         let totalHours = 0;
         entries.forEach((entry) => {
-          if (typeof entry.duration === "number") {
-            totalHours += entry.duration / (1000 * 60 * 60);
-          } else if (entry.clockOut && entry.clockIn) {
-            const ms = new Date(entry.clockOut) - new Date(entry.clockIn);
-            totalHours += ms / 3600000;
-          }
+          if (!entry?.clockOut && entry?.isClosed !== true) return;
+          totalHours += parseDurationToHours(entry);
         });
 
         const firstEntry = entries[0];

@@ -45,30 +45,33 @@ export default function GraduateDashboard() {
     loadDashboard();
   }, []);
 
-  const totalHours = Array.isArray(timesheet) ? timesheet.reduce((acc, entry) => {
-    // Handle duration as number (milliseconds)
-    if (typeof entry.duration === "number") {
-      return acc + entry.duration / (1000 * 60 * 60);
-    }
-    
-    // Handle duration as formatted string like "8h 30m"
-    if (typeof entry.duration === "string") {
-      const parts = entry.duration.split(" ");
-      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-      return acc + hours + minutes / 60;
-    }
-    
-    // Try durationFormatted if duration is not usable
-    if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
-      const parts = entry.durationFormatted.split(" ");
-      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-      return acc + hours + minutes / 60;
-    }
-    
-    return acc;
-  }, 0) : 0;
+  const totalHours = Array.isArray(timesheet)
+    ? timesheet.reduce((acc, entry) => {
+        // Match Timesheet logic: only count closed sessions, otherwise dashboard can drift
+        // due to "In Progress" entries or live-calculated durations.
+        if (!entry?.clockOut && !entry?.isClosed) return acc;
+
+        // Prefer backend numeric duration (ms)
+        if (typeof entry?.duration === "number") {
+          return acc + entry.duration / (1000 * 60 * 60);
+        }
+
+        // Fall back to parsing formatted strings like "8h 30m" / "8h 30m 10s"
+        const formatted =
+          (typeof entry?.durationFormatted === "string" && entry.durationFormatted) ||
+          (typeof entry?.duration === "string" && entry.duration) ||
+          "";
+
+        if (formatted) {
+          const parts = formatted.split(" ");
+          const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
+          const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
+          return acc + hours + minutes / 60;
+        }
+
+        return acc;
+      }, 0)
+    : 0;
 
   const pendingReports = Array.isArray(reports) ? reports.filter(
     (r) => r.status === "Submitted" || r.status === "Reviewed"
@@ -245,14 +248,7 @@ export default function GraduateDashboard() {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-white">
-                            {new Date(entry.clockIn).toLocaleDateString(
-                              "en-US",
-                              {
-                                weekday: "short",
-                                month: "short",
-                                day: "numeric",
-                              }
-                            )}
+                            {entry?.notes?.trim() ? entry.notes : "Clock In"}
                           </p>
                           <p className="text-xs text-white/50">
                             {new Date(entry.clockIn).toLocaleTimeString(

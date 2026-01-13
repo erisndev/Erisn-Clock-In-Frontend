@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useScrollLock from "../../hooks/useScrollLock";
@@ -12,8 +13,8 @@ export default function DashboardLayout({ role = "graduate", children }) {
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Lock scroll when mobile sidebar is open
-  useScrollLock(mobileOpen);
+  // Lock scroll when mobile sidebar or logout modal is open
+  useScrollLock(mobileOpen || logoutOpen);
 
   const graduateLinks = [
     { to: "/dashboard", label: "Overview", icon: HomeIcon },
@@ -52,19 +53,77 @@ export default function DashboardLayout({ role = "graduate", children }) {
     );
   };
 
-  const SidebarContent = ({ onLinkClick }) => {
+  // Logout modal needs to render at layout-root level; otherwise it can be trapped
+  // inside stacking contexts (e.g. fixed sidebars / transformed ancestors) and appear
+  // "below" page content even with high z-index.
+  const LogoutConfirmModal = () => {
+    if (!logoutOpen) return null;
+
     const handleLogout = async () => {
       setLoggingOut(true);
       try {
         await logout();
         setLogoutOpen(false);
-        onLinkClick?.();
         navigate("/");
       } finally {
         setLoggingOut(false);
       }
     };
 
+    // Portal to <body> to avoid any stacking-context issues from parents (transform/filter/etc.)
+    // Center using a full-screen flex container so it's always centered relative to the viewport
+    // (ignores sidebar/nav offsets).
+    return createPortal(
+      <AnimatePresence>
+        <div className="fixed inset-0 z-[2147483646] flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setLogoutOpen(false)}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative z-[2147483647] w-[92vw] max-w-sm rounded-2xl bg-[#0a0a0a] border border-white/[0.08] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5">
+              <h3 className="text-white font-semibold text-lg">Confirm logout</h3>
+              <p className="text-white/50 text-sm mt-1">
+                Are you sure you want to log out?
+              </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLogoutOpen(false)}
+                  disabled={loggingOut}
+                  className="py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="py-2.5 rounded-xl bg-brand-red text-white font-semibold hover:opacity-95 transition-opacity disabled:opacity-50"
+                >
+                  {loggingOut ? "Logging out..." : "Logout"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </AnimatePresence>,
+      document.body
+    );
+  };
+
+  const SidebarContent = ({ onLinkClick }) => {
     return (
       <>
       <div className="px-4 py-6 border-b border-white/[0.06]">
@@ -99,54 +158,7 @@ export default function DashboardLayout({ role = "graduate", children }) {
         </button>
       </div>
 
-      {/* Logout confirm modal */}
-      <AnimatePresence>
-        {logoutOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
-              onClick={() => setLogoutOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.98 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed z-[70] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-sm rounded-2xl bg-[#0a0a0a] border border-white/[0.08] shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-5">
-                <h3 className="text-white font-semibold text-lg">Confirm logout</h3>
-                <p className="text-white/50 text-sm mt-1">
-                  Are you sure you want to log out?
-                </p>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setLogoutOpen(false)}
-                    disabled={loggingOut}
-                    className="py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="py-2.5 rounded-xl bg-brand-red text-white font-semibold hover:opacity-95 transition-opacity disabled:opacity-50"
-                  >
-                    {loggingOut ? "Logging out..." : "Logout"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* Logout confirm modal is rendered at layout root to avoid stacking-context issues */}
     </>
     );
   };
@@ -209,6 +221,9 @@ export default function DashboardLayout({ role = "graduate", children }) {
           </div>
         </main>
       </div>
+
+      {/* Global logout modal */}
+      <LogoutConfirmModal />
     </div>
   );
 }

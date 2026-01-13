@@ -43,30 +43,76 @@ export default function AdminDashboard() {
     totalGraduates: graduates.length,
   };
 
-  const totalHours = Array.isArray(timesheet) ? timesheet.reduce((acc, entry) => {
-    // Handle duration as number (milliseconds)
-    if (typeof entry.duration === "number") {
-      return acc + entry.duration / (1000 * 60 * 60);
+  // Match Graduate Timesheet totals logic:
+  // - Count only closed sessions
+  // - Prefer backend numeric duration (ms)
+  // - Fallback to parsing formatted strings
+  const parseDurationToHours = (entry) => {
+    if (typeof entry?.duration === "number") {
+      return entry.duration / (1000 * 60 * 60);
     }
-    
-    // Handle duration as formatted string like "8h 30m"
-    if (typeof entry.duration === "string") {
-      const parts = entry.duration.split(" ");
+
+    const formatted =
+      (typeof entry?.durationFormatted === "string" && entry.durationFormatted) ||
+      (typeof entry?.duration === "string" && entry.duration) ||
+      "";
+
+    if (formatted) {
+      const parts = formatted.split(" ");
       const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
       const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-      return acc + hours + minutes / 60;
+      return hours + minutes / 60;
     }
-    
-    // Try durationFormatted if duration is not usable
-    if (entry.durationFormatted && typeof entry.durationFormatted === "string") {
-      const parts = entry.durationFormatted.split(" ");
-      const hours = parseInt(parts[0]?.replace(/\D/g, "")) || 0;
-      const minutes = parseInt(parts[1]?.replace(/\D/g, "")) || 0;
-      return acc + hours + minutes / 60;
-    }
-    
-    return acc;
-  }, 0) : 0;
+
+    return 0;
+  };
+
+  const closedEntries = Array.isArray(timesheet)
+    ? timesheet.filter((e) => Boolean(e?.clockOut) || e?.isClosed === true)
+    : [];
+
+  const totalHours = closedEntries.reduce(
+    (acc, entry) => acc + parseDurationToHours(entry),
+    0
+  );
+
+  // Log breakdown so we can trace what contributes to the total.
+  // (Safe in production, but you can remove later.)
+  useEffect(() => {
+    if (!Array.isArray(closedEntries) || closedEntries.length === 0) return;
+
+    const breakdown = closedEntries
+      .map((e) => {
+        const hours = parseDurationToHours(e);
+        return {
+          id: e?._id,
+          userId: e?.userId?._id || e?.userId,
+          userName: e?.userId?.name,
+          clockIn: e?.clockIn,
+          clockOut: e?.clockOut,
+          isClosed: e?.isClosed,
+          duration: e?.duration,
+          durationFormatted: e?.durationFormatted,
+          breakDuration: e?.breakDuration,
+          hours,
+        };
+      })
+      .filter((x) => x.hours > 0)
+      .sort((a, b) => b.hours - a.hours);
+
+    const top = breakdown.slice(0, 20);
+    const sumTop = top.reduce((a, x) => a + x.hours, 0);
+    const sumAll = breakdown.reduce((a, x) => a + x.hours, 0);
+
+    console.groupCollapsed(
+      `[AdminDashboard] Total hours debug | entries=${closedEntries.length} (closed only) | hours=${totalHours.toFixed(
+        2
+      )}`
+    );
+    console.log("sumAll(hours>0):", sumAll.toFixed(2), "sumTop20:", sumTop.toFixed(2));
+    console.table(top);
+    console.groupEnd();
+  }, [closedEntries, totalHours]);
 
   const recentReports = reports.slice(0, 5);
 
