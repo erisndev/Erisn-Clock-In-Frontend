@@ -161,10 +161,13 @@ export const enablePush = async ({ swPath = "/sw.js" } = {}) => {
       applicationServerKey,
     }));
 
-  // Send to backend
+  // IMPORTANT:
+  // - Some backends expect the raw subscription object, not { subscription: ... }.
+  // - If payload shape doesn't match, demo push can still work but scheduled pushes won't
+  //   because the subscription is never correctly persisted on the user.
   await request("/notifications/subscribe", {
     method: "POST",
-    body: { subscription },
+    body: subscription,
   });
 
   return { subscription, permission };
@@ -307,7 +310,7 @@ export const notifications = {
   subscribePush: (subscription) =>
     request("/notifications/subscribe", {
       method: "POST",
-      body: { subscription },
+      body: subscription,
     }),
 
   getVapidPublicKey: () =>
