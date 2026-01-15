@@ -20,18 +20,18 @@ export default function GraduateDashboard() {
           api.attendance.getHistory({ limit: 5 }),
           api.reports.getMyReports(),
         ]);
-        
+
         // Set clock status from backend
         setClockStatus(statusResponse.status || "clocked-out");
-        
+
         // Ensure historyResponse.data is an array
-        const attendanceArray = Array.isArray(historyResponse?.data) 
-          ? historyResponse.data 
-          : Array.isArray(historyResponse) 
-            ? historyResponse 
+        const attendanceArray = Array.isArray(historyResponse?.data)
+          ? historyResponse.data
+          : Array.isArray(historyResponse)
+            ? historyResponse
             : [];
         setTimesheet(attendanceArray);
-        
+
         // Ensure reportsData.data is an array
         const reportsArray = Array.isArray(reportsData?.data) ? reportsData.data : [];
         setReports(reportsArray);
@@ -81,7 +81,19 @@ export default function GraduateDashboard() {
     (r) => r.status === "Approved"
   ).length : 0;
 
-  const recentEntries = Array.isArray(timesheet) ? timesheet.slice(0, 5) : [];
+  const recentEntries = Array.isArray(timesheet)
+    ? timesheet
+        // Recent Activity should show actual clock-in sessions, not auto-marked absent workday records.
+        .filter((entry) => {
+          const attendanceStatus = String(entry?.attendanceStatus || "").toLowerCase();
+          const isAutoAbsentWorkday =
+            (attendanceStatus === "absent" && entry?.autoMarkedAbsent === true) ||
+            (entry?.type === "workday" && attendanceStatus === "absent" && !entry?.clockIn);
+
+          return !isAutoAbsentWorkday;
+        })
+        .slice(0, 5)
+    : [];
 
   // Helper function to format duration
   const formatDuration = (record) => {

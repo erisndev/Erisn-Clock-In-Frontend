@@ -291,7 +291,9 @@ export default function AdminReportsPage() {
               {/* Week Filter */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setSelectedWeek("all")}
+                  onClick={() =>
+                    setSelectedWeek((prev) => (prev === "all" ? "" : "all"))
+                  }
                   className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                     selectedWeek === "all"
                       ? "bg-brand-red text-white"
