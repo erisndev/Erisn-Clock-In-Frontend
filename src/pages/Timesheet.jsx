@@ -66,6 +66,20 @@ export default function Timesheet() {
       // Defensive filtering: ignore clearly-invalid placeholder records
       // (e.g. epoch/1970 dates) which can show up from backend seed/default values.
       const sanitizedEntries = entriesArray.filter((entry) => {
+        // Include "absent"/"pending" day records (no clockIn) as well.
+        const statusStr = String(
+          entry?.attendanceStatus || entry?.status || entry?.state || ""
+        ).toLowerCase();
+        const isAbsentLike =
+          statusStr === "absent" ||
+          entry?.isAbsent === true ||
+          entry?.markedAbsent === true ||
+          entry?.absent === true ||
+          entry?.is_absent === true ||
+          entry?.marked_absent === true;
+
+        if (isAbsentLike) return true;
+
         const clockIn = entry?.clockIn ? new Date(entry.clockIn) : null;
         if (!clockIn || Number.isNaN(clockIn.getTime())) return false;
         // Anything before year 2000 is almost certainly a placeholder (epoch-like).
@@ -297,7 +311,7 @@ export default function Timesheet() {
                     className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
                   >
                     <td className="table-cell font-medium text-white">
-                      {formatDateSA(entry.clockIn) || "-"}
+                      {formatDateSA(entry.clockIn) || entry?.date || "-"}
                     </td>
                     <td className="table-cell">
                       {formatTimeSA(entry.clockIn) || "-"}
@@ -309,6 +323,17 @@ export default function Timesheet() {
                       {entry.clockOut ? (
                         <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
                           {entry.durationFormatted || formatDuration(entry)}
+                        </span>
+                      ) : String(
+                          entry?.attendanceStatus || entry?.status || entry?.state || ""
+                        ).toLowerCase() === "absent" ||
+                        entry?.isAbsent === true ||
+                        entry?.markedAbsent === true ||
+                        entry?.absent === true ||
+                        entry?.is_absent === true ||
+                        entry?.marked_absent === true ? (
+                        <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400">
+                          Absent
                         </span>
                       ) : (
                         <span className="text-white/30">-</span>
@@ -341,11 +366,22 @@ export default function Timesheet() {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-white">
-                    {formatDateSA(entry.clockIn) || "-"}
+                    {formatDateSA(entry.clockIn) || entry?.date || "-"}
                   </span>
                   {entry.clockOut ? (
                     <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
                       {entry.durationFormatted || formatDuration(entry)}
+                    </span>
+                  ) : String(
+                      entry?.attendanceStatus || entry?.status || entry?.state || ""
+                    ).toLowerCase() === "absent" ||
+                    entry?.isAbsent === true ||
+                    entry?.markedAbsent === true ||
+                    entry?.absent === true ||
+                    entry?.is_absent === true ||
+                    entry?.marked_absent === true ? (
+                    <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400">
+                      Absent
                     </span>
                   ) : (
                     <span className="text-white/30">-</span>
