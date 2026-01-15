@@ -30,6 +30,7 @@ export const clearToken = () => {
 const request = async (endpoint, options = {}) => {
   const url = `${BASE_URL}${endpoint}`;
 
+  
   const headers = {
     "Content-Type": "application/json",
     ...options.headers,
@@ -306,6 +307,9 @@ export const notifications = {
   markAsRead: (id) => request(`/notifications/${id}/read`, { method: "PATCH" }),
   markAllAsRead: () =>
     request("/notifications/mark-all-read", { method: "PATCH" }),
+
+  // Delete all notifications for logged-in user
+  deleteAll: () => request("/notifications/delete-all", { method: "DELETE" }),
 
   subscribePush: (subscription) =>
     request("/notifications/subscribe", {

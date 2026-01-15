@@ -103,11 +103,11 @@ export default function AdminGraduatesPage() {
           </div>
 
           {/* Department Filter */}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <select
               value={selectedDepartment}
               onChange={(e) => setSelectedDepartment(e.target.value)}
-              className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer min-w-[200px]"
+              className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer w-full sm:min-w-[200px]"
             >
               <option value="All Departments" className="bg-[#1a1a1a]">All Departments</option>
               {DEPARTMENTS.map((dept) => (
@@ -121,7 +121,7 @@ export default function AdminGraduatesPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -184,7 +184,7 @@ export default function AdminGraduatesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredGraduates.map((graduate, index) => (
               <motion.button
                 key={graduate._id}
@@ -194,7 +194,7 @@ export default function AdminGraduatesPage() {
                 onClick={() => handleGraduateClick(graduate)}
                 className="glass-card-hover p-5 text-left group"
               >
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col xs:flex-row items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-bold text-lg">
                       {(graduate.name || "G").charAt(0)}
@@ -228,7 +228,7 @@ export default function AdminGraduatesPage() {
                       )}
                     </div>
                   </div>
-                  <ChevronRightIcon className="w-5 h-5 text-white/20 group-hover:text-white/40 transition-colors" />
+                  <ChevronRightIcon className="w-5 h-5 text-white/20 group-hover:text-white/40 transition-colors hidden xs:block" />
                 </div>
               </motion.button>
             ))}

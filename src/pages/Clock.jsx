@@ -19,6 +19,8 @@ export default function Clock() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [hasClockedInToday, setHasClockedInToday] = useState(false);
   const [currentAttendance, setCurrentAttendance] = useState(null);
+  const [isMarkedAbsent, setIsMarkedAbsent] = useState(false);
+  const [absentMessage, setAbsentMessage] = useState("");
   const [, forceTick] = useState(0);
 
   // Initialize clock state from backend on page load
@@ -42,14 +44,45 @@ export default function Clock() {
           try {
             const todayResp = await api.attendance.getToday();
             const todayRecord = todayResp?.data;
-            const hasClockIn = Boolean(todayRecord?.clockIn);
-            setHasClockedInToday(hasClockIn);
 
-            // If backend returns a record that indicates user is actually clocked-in,
-            // prefer it over status.
+            const hasClockIn = Boolean(todayRecord?.clockIn);
+
+            const absentChecks = {
+              status:
+                String(todayRecord?.status || "").toLowerCase() === "absent",
+              attendanceStatus:
+                String(todayRecord?.attendanceStatus || "").toLowerCase() ===
+                "absent",
+              state:
+                String(todayRecord?.state || "").toLowerCase() === "absent",
+              isAbsent: todayRecord?.isAbsent === true,
+              markedAbsent: todayRecord?.markedAbsent === true,
+              absent: todayRecord?.absent === true,
+              is_absent: todayRecord?.is_absent === true,
+              marked_absent: todayRecord?.marked_absent === true,
+            };
+
+            const absent = Object.values(absentChecks).some(Boolean);
+
+            const defaultMsg =
+              "You were marked absent for today and can no longer clock in. Please contact your administrator.";
+
+            // Only show the default "marked absent" message if the backend actually indicates absence.
+            // Otherwise we avoid confusing UI while status is still pending.
+            const msg =
+              todayRecord?.message || todayRecord?.error || (absent ? defaultMsg : "");
+
+            setHasClockedInToday(hasClockIn || absent);
+            setIsMarkedAbsent(absent);
+            setAbsentMessage(absent ? msg : "");
+
             if (hasClockIn && !todayRecord.clockOut) {
               setCurrentAttendance(todayRecord);
-              setStatus(todayRecord.breakIn && !todayRecord.breakOut ? "on-break" : "clocked-in");
+              setStatus(
+                todayRecord.breakIn && !todayRecord.breakOut
+                  ? "on-break"
+                  : "clocked-in"
+              );
               setStartTime(new Date(todayRecord.clockIn).getTime());
               if (todayRecord.breakIn && !todayRecord.breakOut) {
                 setBreakStartTime(new Date(todayRecord.breakIn).getTime());
@@ -117,29 +150,28 @@ export default function Clock() {
   ]);
 
   const handleClockIn = async () => {
-    if (hasClockedInToday) return;
+    if (hasClockedInToday || isMarkedAbsent) return;
 
     const payload = { notes: note };
-    const clientTimeISO = new Date().toISOString();
 
-    
     setIsLoading(true);
     try {
       const response = await api.attendance.clockIn(payload);
       const { data } = response;
 
-      
       setCurrentAttendance(data);
       setStatus("clocked-in");
       setStartTime(new Date(data.clockIn).getTime());
       setAccumulatedTime(0);
       setBreakTaken(false);
       setHasClockedInToday(true);
+      setIsMarkedAbsent(false);
       setNote("");
 
       toast.success("Clocked in successfully");
     } catch (error) {
       const msg = error?.message || "Failed to clock in";
+
       toast.error(msg);
 
       // If backend says user already clocked in today, lock the button.
@@ -224,7 +256,9 @@ export default function Clock() {
       const now = Date.now();
       setStartTime(now - accumulatedTime);
 
-      toast.success(`Break ended. Break duration: ${data.breakDurationFormatted}`);
+      toast.success(
+        `Break ended. Break duration: ${data.breakDurationFormatted}`
+      );
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -345,7 +379,9 @@ export default function Clock() {
                   );
                 }
 
-                return <Timer startTime={effectiveStartTime} isRunning={true} />;
+                return (
+                  <Timer startTime={effectiveStartTime} isRunning={true} />
+                );
               })()}
             </motion.div>
           )}
@@ -372,6 +408,12 @@ export default function Clock() {
 
         {/* Action Buttons */}
         <div className="space-y-3">
+          {isMarkedAbsent && (
+            <div className="mt-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
+              {absentMessage ||
+                "You were marked absent for today and can no longer clock in. Please contact your administrator."}
+            </div>
+          )}
           <AnimatePresence mode="wait">
             {status === "clocked-out" && (
               <motion.button
@@ -380,14 +422,23 @@ export default function Clock() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 onClick={handleClockIn}
-                disabled={isLoading || hasClockedInToday}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold text-lg shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading || hasClockedInToday || isMarkedAbsent}
+                className={`w-full py-4 rounded-2xl text-white font-semibold text-lg shadow-lg transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isMarkedAbsent
+                    ? "bg-gradient-to-r from-red-600 to-red-700 shadow-red-600/25 hover:shadow-red-600/30"
+                    : "bg-gradient-to-r from-emerald-500 to-emerald-600 shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30"
+                }`}
               >
                 <span className="flex items-center justify-center gap-3">
                   {isLoading ? (
                     <>
                       <Spinner />
                       Clocking In...
+                    </>
+                  ) : isMarkedAbsent ? (
+                    <>
+                      <StopIcon className="w-5 h-5" />
+                      Marked Absent
                     </>
                   ) : hasClockedInToday ? (
                     <>

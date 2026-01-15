@@ -47,49 +47,100 @@ export default function AdminGraduateDetailPage() {
     const loadGraduateData = async () => {
       setLoading(true);
       try {
+        console.groupCollapsed("[AdminGraduateDetailPage] loadGraduateData", { id });
+
         // Get all graduates and find the one with matching ID
         const graduatesRes = await api.admin.getUsers({ role: "graduate" });
+        console.log("[AdminGraduateDetailPage] graduatesRes:", graduatesRes);
+
         const graduates = graduatesRes.data || [];
+        console.log("[AdminGraduateDetailPage] graduates count:", graduates.length);
+
         const found = graduates.find((u) => u._id === id);
+        console.log("[AdminGraduateDetailPage] found graduate:", found);
 
         if (found) {
           setGraduate(found);
 
           // Get attendance history for this user
           try {
+            console.groupCollapsed("[AdminGraduateDetailPage] attendance.getAll", {
+              userId: id,
+            });
+
             const attendanceRes = await api.attendance.getAll({ userId: id });
+            console.log("[AdminGraduateDetailPage] attendanceRes:", attendanceRes);
+            console.log(
+              "[AdminGraduateDetailPage] attendanceRes.data type:",
+              Array.isArray(attendanceRes?.data) ? "array" : typeof attendanceRes?.data
+            );
+
             const attendanceArray = Array.isArray(attendanceRes?.data)
               ? attendanceRes.data
               : Array.isArray(attendanceRes)
               ? attendanceRes
               : [];
+
+            console.log(
+              "[AdminGraduateDetailPage] attendanceArray length:",
+              attendanceArray.length
+            );
+            console.log(
+              "[AdminGraduateDetailPage] attendanceArray sample (first 3):",
+              attendanceArray.slice(0, 3)
+            );
+
+            // Quick sanity check: are we accidentally receiving other users?
+            const userIdMismatches = attendanceArray
+              .filter((e) => e?.user && typeof e.user === "object")
+              .filter((e) => e.user?._id && e.user?._id !== id);
+
+            if (userIdMismatches.length > 0) {
+              console.warn(
+                "[AdminGraduateDetailPage] WARNING: attendance entries contain mismatching userIds:",
+                userIdMismatches.slice(0, 5)
+              );
+            }
+
             setTimesheet(attendanceArray);
-            console.log("Attendance loaded for user:", attendanceArray);
+
+            console.groupEnd();
           } catch (err) {
-            console.error("Failed to load attendance:", err);
+            console.error("[AdminGraduateDetailPage] Failed to load attendance:", err);
             setTimesheet([]);
+            console.groupEnd();
           }
 
           // Get reports for this user
           try {
             const reportsRes = await api.admin.getReports({ userId: id });
+            console.log("[AdminGraduateDetailPage] reportsRes:", reportsRes);
+
             // Handle both { data: [...] } and direct array response
             const reportsArray = Array.isArray(reportsRes?.data)
               ? reportsRes.data
               : Array.isArray(reportsRes)
               ? reportsRes
               : [];
+
+            console.log("[AdminGraduateDetailPage] reportsArray length:", reportsArray.length);
+            console.log(
+              "[AdminGraduateDetailPage] reportsArray sample (first 3):",
+              reportsArray.slice(0, 3)
+            );
+
             setReports(reportsArray);
-            console.log("Reports loaded for user:", reportsArray);
           } catch (err) {
-            console.error("Failed to load reports:", err);
+            console.error("[AdminGraduateDetailPage] Failed to load reports:", err);
             setReports([]);
           }
         } else {
           setGraduate(null);
         }
+
+        console.groupEnd();
       } catch (error) {
-        console.error("Failed to load graduate data:", error);
+        console.error("[AdminGraduateDetailPage] Failed to load graduate data:", error);
         toast.error("Failed to load graduate data");
       } finally {
         setLoading(false);
@@ -142,6 +193,18 @@ export default function AdminGraduateDetailPage() {
 
     // Create a map of timesheet entries by date using LOCAL date key
     const timesheetByDate = {};
+
+    // Debug timesheet mapping (helps detect timezone/dateKey issues)
+    try {
+      console.groupCollapsed("[AdminGraduateDetailPage] attendanceData build", {
+        selectedMonth,
+        timesheetCount: Array.isArray(timesheet) ? timesheet.length : 0,
+      });
+      console.log("[AdminGraduateDetailPage] timesheet sample (first 5):", (timesheet || []).slice(0, 5));
+    } catch (_) {
+      // ignore logging failures
+    }
+
     timesheet.forEach((entry) => {
       const clockInDate = new Date(entry.clockIn);
       // Use local date key to avoid UTC day shift
@@ -151,6 +214,25 @@ export default function AdminGraduateDetailPage() {
       }
       timesheetByDate[dateKey].push(entry);
     });
+
+    try {
+      const keys = Object.keys(timesheetByDate);
+      console.log("[AdminGraduateDetailPage] timesheetByDate keys (sample):", keys.slice(0, 10));
+      if (keys.length > 0) {
+        const k = keys[0];
+        console.log(
+          `[AdminGraduateDetailPage] timesheetByDate['${k}'] length:`,
+          timesheetByDate[k]?.length
+        );
+        console.log(
+          `[AdminGraduateDetailPage] timesheetByDate['${k}'] sample:`,
+          (timesheetByDate[k] || []).slice(0, 2)
+        );
+      }
+      console.groupEnd();
+    } catch (_) {
+      // ignore logging failures
+    }
 
     return weekdays.map((date) => {
       // Use local date key for weekdays as well
@@ -420,12 +502,12 @@ export default function AdminGraduateDetailPage() {
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
               <h2 className="section-title">Attendance History</h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                <div className="relative w-full sm:w-auto">
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="appearance-none px-4 py-2 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
+                    className="appearance-none px-4 py-2 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer w-full sm:w-auto"
                   >
                     {monthOptions.map((option) => (
                       <option
@@ -439,11 +521,11 @@ export default function AdminGraduateDetailPage() {
                   </select>
                   <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <select
                     value={exportFormat}
                     onChange={(e) => setExportFormat(e.target.value)}
-                    className="appearance-none px-3 py-2 pr-8 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer"
+                    className="appearance-none px-3 py-2 pr-8 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer w-full sm:w-auto"
                   >
                     <option value="pdf" className="bg-[#1a1a1a]">
                       PDF
@@ -457,7 +539,7 @@ export default function AdminGraduateDetailPage() {
                 <button
                   onClick={exportClockins}
                   disabled={exporting}
-                  className="btn-primary text-sm py-2 disabled:opacity-50"
+                  className="btn-primary text-sm py-2 disabled:opacity-50 w-full sm:w-auto justify-center"
                 >
                   {exporting ? (
                     <Spinner className="w-4 h-4" />

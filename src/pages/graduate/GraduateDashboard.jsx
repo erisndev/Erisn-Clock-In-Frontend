@@ -237,6 +237,14 @@ export default function GraduateDashboard() {
             ) : (
               <div className="space-y-3">
                 {recentEntries.map((entry) => {
+                  const activityDate = entry?.clockIn
+                    ? new Date(entry.clockIn).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "2-digit",
+                      })
+                    : "";
+
                   return (
                     <div
                       key={entry._id}
@@ -251,6 +259,8 @@ export default function GraduateDashboard() {
                             {entry?.notes?.trim() ? entry.notes : "Clock In"}
                           </p>
                           <p className="text-xs text-white/50">
+                            <span>{activityDate}</span>
+                            <span className="mx-1">•</span>
                             {new Date(entry.clockIn).toLocaleTimeString(
                               "en-US",
                               {

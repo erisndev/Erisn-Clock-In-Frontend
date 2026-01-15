@@ -80,6 +80,19 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      await api.notifications.deleteAll();
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(false);
+      setCursor(null);
+      toast.success("All notifications deleted");
+    } catch (error) {
+      toast.error("Failed to delete notifications");
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case "report_approved":
@@ -112,14 +125,24 @@ export default function NotificationsPage() {
                 : "You're all caught up!"}
             </p>
           </div>
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="text-sm text-brand-red hover:underline font-medium"
-            >
-              Mark all as read
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                className="text-sm text-brand-red hover:underline font-medium"
+              >
+                Mark all as read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={handleDeleteAll}
+                className="text-sm text-white/60 hover:text-white hover:underline font-medium"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Notifications List */}
