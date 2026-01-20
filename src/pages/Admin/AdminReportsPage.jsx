@@ -70,10 +70,12 @@ export default function AdminReportsPage() {
   const [feedback, setFeedback] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedWeek, setSelectedWeek] = useState(() => {
+  const defaultWeekValue = useMemo(() => {
     const { monday } = getDefaultWeek();
     return formatDate(monday);
-  });
+  }, []);
+
+  const [selectedWeek, setSelectedWeek] = useState(defaultWeekValue);
   const [actionLoading, setActionLoading] = useState(false);
 
   useScrollLock(!!viewReport || !!feedbackReport);
@@ -292,7 +294,9 @@ export default function AdminReportsPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() =>
-                    setSelectedWeek((prev) => (prev === "all" ? "" : "all"))
+                    setSelectedWeek((prev) =>
+                      prev === "all" ? defaultWeekValue : "all"
+                    )
                   }
                   className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                     selectedWeek === "all"
