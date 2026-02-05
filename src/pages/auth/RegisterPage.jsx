@@ -12,8 +12,8 @@ const DEPARTMENTS = [
   "Fintech (Blockchain)",
   "Search Engine Optimization (SEO)",
   "Graphic Design",
-  "LMS Administration ",
-  "Project Management ",
+  "LMS Administration",
+  "Project Management",
   "Finance",
   "Human Resource Management",
 ];

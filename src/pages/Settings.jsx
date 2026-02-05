@@ -6,14 +6,14 @@ import toast from "react-hot-toast";
 
 const DEPARTMENTS = [
   "Data Analyst",
-  "Marketing & Sales (Inbound & Outbound)",
+  "Marketing & Sales",
   "CyberSecurity",
   "Software Development",
   "Fintech (Blockchain)",
   "Search Engine Optimization (SEO)",
   "Graphic Design",
-  "LMS Administration (Content Development & Courses)",
-  "Project Management (Business Development)",
+  "LMS Administration",
+  "Project Management",
   "Finance",
   "Human Resource Management",
 ];
