@@ -9,7 +9,8 @@ const urlBase64ToUint8Array = (base64String) => {
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  for (let i = 0; i < rawData.length; ++i)
+    outputArray[i] = rawData.charCodeAt(i);
   return outputArray;
 };
 
@@ -29,7 +30,9 @@ export default function SettingsPage() {
   });
   const [newPassword, setNewPassword] = useState("");
   const [pushPermission, setPushPermission] = useState(
-    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+    typeof Notification !== "undefined"
+      ? Notification.permission
+      : "unsupported",
   );
   const [pushBusy, setPushBusy] = useState(false);
 
@@ -45,13 +48,15 @@ export default function SettingsPage() {
           department: profileData.department || "",
           province: profileData.province || "",
         });
-        
+
         // Preferences are nested inside the profile response
         if (profileData.preferences) {
           setPreferencesForm({
             timezone: profileData.preferences.timezone || "UTC",
-            notificationChannels: profileData.preferences.notificationChannels || [],
-            emailFrequency: profileData.preferences.emailFrequency || "immediate",
+            notificationChannels:
+              profileData.preferences.notificationChannels || [],
+            emailFrequency:
+              profileData.preferences.emailFrequency || "immediate",
           });
         }
       } catch (error) {
@@ -187,8 +192,12 @@ export default function SettingsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Settings</h1>
-          <p className="text-white/50 mt-1">Manage your account and preferences</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">
+            Settings
+          </h1>
+          <p className="text-white/50 mt-1">
+            Manage your account and preferences
+          </p>
         </div>
 
         {/* Profile Section */}
@@ -244,7 +253,10 @@ export default function SettingsPage() {
                   name="cellNumber"
                   value={profileForm.cellNumber}
                   onChange={(e) =>
-                    setProfileForm({ ...profileForm, cellNumber: e.target.value })
+                    setProfileForm({
+                      ...profileForm,
+                      cellNumber: e.target.value,
+                    })
                   }
                   placeholder="Your cell number"
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all"
@@ -258,7 +270,10 @@ export default function SettingsPage() {
                   name="department"
                   value={profileForm.department}
                   onChange={(e) =>
-                    setProfileForm({ ...profileForm, department: e.target.value })
+                    setProfileForm({
+                      ...profileForm,
+                      department: e.target.value,
+                    })
                   }
                   placeholder="Your department"
                   className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all"
@@ -276,7 +291,10 @@ export default function SettingsPage() {
                     name="province"
                     value={profileForm.province}
                     onChange={(e) =>
-                      setProfileForm({ ...profileForm, province: e.target.value })
+                      setProfileForm({
+                        ...profileForm,
+                        province: e.target.value,
+                      })
                     }
                     className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all cursor-pointer"
                   >
@@ -347,9 +365,13 @@ export default function SettingsPage() {
                 >
                   <option value="UTC">UTC</option>
                   <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
-                  <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
+                  <option value="Africa/Johannesburg">
+                    Africa/Johannesburg (SAST)
+                  </option>
                   <option value="Europe/London">Europe/London (GMT/BST)</option>
-                  <option value="America/New_York">America/New York (EST/EDT)</option>
+                  <option value="America/New_York">
+                    America/New York (EST/EDT)
+                  </option>
                 </select>
                 <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
               </div>
@@ -365,12 +387,14 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       value="email"
-                      checked={preferencesForm.notificationChannels.includes("email")}
+                      checked={preferencesForm.notificationChannels.includes(
+                        "email",
+                      )}
                       onChange={(e) => {
                         const channels = e.target.checked
                           ? [...preferencesForm.notificationChannels, "email"]
                           : preferencesForm.notificationChannels.filter(
-                              (c) => c !== "email"
+                              (c) => c !== "email",
                             );
                         setPreferencesForm({
                           ...preferencesForm,
@@ -380,9 +404,9 @@ export default function SettingsPage() {
                       className="sr-only peer"
                     />
                     <div className="w-5 h-5 border-2 border-white/20 rounded bg-black/30 peer-checked:bg-brand-red peer-checked:border-brand-red transition-all flex items-center justify-center">
-                      {preferencesForm.notificationChannels.includes("email") && (
-                        <CheckIcon className="w-3 h-3 text-white" />
-                      )}
+                      {preferencesForm.notificationChannels.includes(
+                        "email",
+                      ) && <CheckIcon className="w-3 h-3 text-white" />}
                     </div>
                   </div>
                   <span className="text-white/80 group-hover:text-white transition-colors">
@@ -395,12 +419,14 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       value="webpush"
-                      checked={preferencesForm.notificationChannels.includes("webpush")}
+                      checked={preferencesForm.notificationChannels.includes(
+                        "webpush",
+                      )}
                       onChange={(e) => {
                         const channels = e.target.checked
                           ? [...preferencesForm.notificationChannels, "webpush"]
                           : preferencesForm.notificationChannels.filter(
-                              (c) => c !== "webpush"
+                              (c) => c !== "webpush",
                             );
                         setPreferencesForm({
                           ...preferencesForm,
@@ -408,16 +434,21 @@ export default function SettingsPage() {
                         });
 
                         // Best-effort: update UI permission status when enabling.
-                        if (e.target.checked && typeof Notification !== "undefined") {
-                          Notification.requestPermission().then((p) => setPushPermission(p));
+                        if (
+                          e.target.checked &&
+                          typeof Notification !== "undefined"
+                        ) {
+                          Notification.requestPermission().then((p) =>
+                            setPushPermission(p),
+                          );
                         }
                       }}
                       className="sr-only peer"
                     />
                     <div className="w-5 h-5 border-2 border-white/20 rounded bg-black/30 peer-checked:bg-brand-red peer-checked:border-brand-red transition-all flex items-center justify-center">
-                      {preferencesForm.notificationChannels.includes("webpush") && (
-                        <CheckIcon className="w-3 h-3 text-white" />
-                      )}
+                      {preferencesForm.notificationChannels.includes(
+                        "webpush",
+                      ) && <CheckIcon className="w-3 h-3 text-white" />}
                     </div>
                   </div>
                   <span className="text-white/80 group-hover:text-white transition-colors">
@@ -426,7 +457,8 @@ export default function SettingsPage() {
                 </label>
 
                 <div className="w-full text-xs text-white/40 -mt-2">
-                  Push permission: <span className="text-white/60">{pushPermission}</span>
+                  Push permission:{" "}
+                  <span className="text-white/60">{pushPermission}</span>
                 </div>
 
                 <div className="w-full pt-2">
@@ -439,8 +471,7 @@ export default function SettingsPage() {
                     {pushBusy ? "Working..." : "Send Demo Push"}
                   </button>
                   <p className="text-xs text-white/40 mt-2">
-                    Sends a test push via <span className="text-white/60">POST /api/notifications/demo-push</span>.
-                    Make sure you have enabled Push Notifications and your backend has VAPID keys.
+                    Sends a test push.
                   </p>
                 </div>
               </div>
@@ -561,40 +592,90 @@ export default function SettingsPage() {
 // Icons
 function UserIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+      />
     </svg>
   );
 }
 
 function SettingsIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
     </svg>
   );
 }
 
 function LockIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+      />
     </svg>
   );
 }
 
 function InfoIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"
+      />
     </svg>
   );
 }
 
 function ChevronDownIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
     </svg>
   );
@@ -602,7 +683,13 @@ function ChevronDownIcon({ className }) {
 
 function CheckIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={3}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -610,8 +697,18 @@ function CheckIcon({ className }) {
 
 function CheckCircleIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
   );
 }
