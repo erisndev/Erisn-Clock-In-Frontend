@@ -14,7 +14,11 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
-          <img src="/ELogo.png" alt="Erisn Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-brand-red/30" />
+          <img
+            src="/ELogo.png"
+            alt="Erisn Logo"
+            className="w-10 h-10 rounded-xl shadow-lg shadow-brand-red/30"
+          />
           <span className="text-white font-bold text-xl">ClockIn</span>
         </div>
         <div className="flex items-center gap-3">
@@ -172,9 +176,13 @@ export default function LandingPage() {
       <footer className="relative z-10 px-6 py-8 border-t border-white/[0.06]">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src="/ELogo.png" alt="Erisn Logo" className="w-8 h-8 rounded-lg" />
+            <img
+              src="/ELogo.png"
+              alt="Erisn Logo"
+              className="w-8 h-8 rounded-lg"
+            />
             <span className="text-white/60 text-sm">
-              © 2025 ClockIn. All rights reserved.
+              © {new Date().getFullYear()} Erisn Africa. All rights reserved.
             </span>
           </div>
           <div className="flex items-center gap-6 text-sm text-white/40">
