@@ -4,6 +4,20 @@ import DashboardLayout from "../components/layout/DashboardLayout";
 import api from "../services/Api";
 import toast from "react-hot-toast";
 
+const DEPARTMENTS = [
+  "Data Analyst",
+  "Marketing & Sales (Inbound & Outbound)",
+  "CyberSecurity",
+  "Software Development",
+  "Fintech (Blockchain)",
+  "Search Engine Optimization (SEO)",
+  "Graphic Design",
+  "LMS Administration (Content Development & Courses)",
+  "Project Management (Business Development)",
+  "Finance",
+  "Human Resource Management",
+];
+
 const urlBase64ToUint8Array = (base64String) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -14,9 +28,17 @@ const urlBase64ToUint8Array = (base64String) => {
   return outputArray;
 };
 
+const normalizeDepartment = (dept) => {
+  if (!dept) return "";
+  const d = String(dept).trim();
+
+  return d;
+};
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: "",
     cellNumber: "",
@@ -45,7 +67,7 @@ export default function SettingsPage() {
         setProfileForm({
           name: profileData.name || "",
           cellNumber: profileData.cellNumber || "",
-          department: profileData.department || "",
+          department: normalizeDepartment(profileData.department) || "",
           province: profileData.province || "",
         });
 
@@ -74,10 +96,21 @@ export default function SettingsPage() {
     try {
       const updated = await api.user.updateProfile(profileForm);
       setProfile(updated);
+      setIsEditingProfile(false);
       toast.success("Profile updated");
     } catch (error) {
       toast.error(error.message || "Failed to update profile");
     }
+  };
+
+  const handleCancelProfileEdit = () => {
+    setProfileForm({
+      name: profile?.name || "",
+      cellNumber: profile?.cellNumber || "",
+      department: normalizeDepartment(profile?.department) || "",
+      province: profile?.province || "",
+    });
+    setIsEditingProfile(false);
   };
 
   // Uses the updated notifications API client (Api.js)
@@ -206,11 +239,36 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           className="glass-card p-6"
         >
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <UserIcon className="w-5 h-5 text-brand-red" />
-            Profile
-          </h2>
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <UserIcon className="w-5 h-5 text-brand-red" />
+              Profile
+            </h2>
+
+            {!isEditingProfile ? (
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(true)}
+                className="bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              >
+                Edit
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCancelProfileEdit}
+                className="bg-white/[0.06] hover:bg-white/[0.10] border border-white/10 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
+          <form
+            id="profile-form"
+            onSubmit={handleUpdateProfile}
+            className="space-y-4"
+          >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-white/70 mb-1.5">
@@ -223,7 +281,12 @@ export default function SettingsPage() {
                     setProfileForm({ ...profileForm, name: e.target.value })
                   }
                   placeholder="Your full name"
-                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all"
+                  disabled={!isEditingProfile}
+                  className={`w-full border rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all ${
+                    !isEditingProfile
+                      ? "bg-black/30 border-white/5 text-white/70 cursor-not-allowed"
+                      : "bg-black/50 border-white/10"
+                  }`}
                 />
               </div>
               <div>
@@ -259,25 +322,50 @@ export default function SettingsPage() {
                     })
                   }
                   placeholder="Your cell number"
-                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all"
+                  disabled={!isEditingProfile}
+                  className={`w-full border rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all ${
+                    !isEditingProfile
+                      ? "bg-black/30 border-white/5 text-white/70 cursor-not-allowed"
+                      : "bg-black/50 border-white/10"
+                  }`}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-white/70 mb-1.5">
                   Department
                 </label>
-                <input
-                  name="department"
-                  value={profileForm.department}
-                  onChange={(e) =>
-                    setProfileForm({
-                      ...profileForm,
-                      department: e.target.value,
-                    })
-                  }
-                  placeholder="Your department"
-                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all"
-                />
+                <div className="relative">
+                  <select
+                    name="department"
+                    value={profileForm.department}
+                    onChange={(e) =>
+                      setProfileForm({
+                        ...profileForm,
+                        department: e.target.value,
+                      })
+                    }
+                    disabled={!isEditingProfile}
+                    className={`w-full border rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all ${
+                      !isEditingProfile
+                        ? "bg-black/30 border-white/5 text-white/70 cursor-not-allowed"
+                        : "bg-black/50 border-white/10 cursor-pointer"
+                    }`}
+                  >
+                    {!isEditingProfile && !profileForm.department ? (
+                      <option value="">N/A</option>
+                    ) : (
+                      <option value="" disabled>
+                        Select Department
+                      </option>
+                    )}
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 pointer-events-none" />
+                </div>
               </div>
             </div>
 
@@ -296,7 +384,12 @@ export default function SettingsPage() {
                         province: e.target.value,
                       })
                     }
-                    className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all cursor-pointer"
+                    disabled={!isEditingProfile}
+                    className={`w-full border rounded-xl px-4 py-3 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all ${
+                      !isEditingProfile
+                        ? "bg-black/30 border-white/5 text-white/70 cursor-not-allowed"
+                        : "bg-black/50 border-white/10 cursor-pointer"
+                    }`}
                   >
                     <option value="">Select Province</option>
                     <option value="Eastern Cape">Eastern Cape</option>
@@ -320,19 +413,21 @@ export default function SettingsPage() {
                   name="role"
                   value={profile?.role || ""}
                   disabled
-                  className="w-full bg-black/30 border border-white/5 rounded-xl px-4 py-3 text-white/50 cursor-not-allowed capitalize"
+                  className="w-full bg-black/30 border border-white/5 rounded-xl px-4 py-2.5 text-white/50 cursor-not-allowed capitalize"
                 />
               </div>
             </div>
 
-            <div className="pt-2">
-              <button
-                type="submit"
-                className="bg-brand-red hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
-              >
-                Update Profile
-              </button>
-            </div>
+            {isEditingProfile && (
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="bg-brand-red hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+                >
+                  Update
+                </button>
+              </div>
+            )}
           </form>
         </motion.section>
 

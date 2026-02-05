@@ -5,14 +5,17 @@ import api from "../../services/Api";
 import toast from "react-hot-toast";
 
 const DEPARTMENTS = [
+  "Data Analyst",
+  "Marketing & Sales ",
+  "CyberSecurity",
   "Software Development",
-  "Data Science",
-  "UI/UX Design",
-  "Project Management",
-  "Quality Assurance",
-  "DevOps",
-  "Business Analysis",
-  "Cybersecurity",
+  "Fintech (Blockchain)",
+  "Search Engine Optimization (SEO)",
+  "Graphic Design",
+  "LMS Administration ",
+  "Project Management ",
+  "Finance",
+  "Human Resource Management",
 ];
 
 const PROVINCES = [
@@ -45,11 +48,11 @@ export default function RegisterPage() {
     e.preventDefault();
 
     const passwordValid = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(
-      password
+      password,
     );
     if (!passwordValid) {
       toast.error(
-        "Password must be at least 8 characters and include 1 uppercase, 1 number and 1 symbol."
+        "Password must be at least 8 characters and include 1 uppercase, 1 number and 1 symbol.",
       );
       return;
     }
@@ -68,12 +71,12 @@ export default function RegisterPage() {
       role,
       cellNumber,
     };
-    
+
     if (role === "graduate") {
       payload.department = department;
       payload.province = province;
     }
-    
+
     console.log("Register payload:", payload);
 
     try {
