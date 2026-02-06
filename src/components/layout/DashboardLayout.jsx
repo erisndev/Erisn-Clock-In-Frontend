@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useScrollLock from "../../hooks/useScrollLock";
 import { useAuth } from "../../context/AuthContext";
-import { Spinner } from "../../components/ui/spinner";
 
 export default function DashboardLayout({ children }) {
   const location = useLocation();
@@ -18,13 +17,8 @@ export default function DashboardLayout({ children }) {
   // Lock scroll when mobile sidebar or logout modal is open
   useScrollLock(mobileOpen || logoutOpen);
 
-  // ⛔️ Wait until auth is fully resolved
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
-        <Spinner className="h-8 w-8 text-white/70" />
-      </div>
-    );
+    return null; // ProtectedRoute already shows a loader
   }
 
   // Extra safety (should never happen because of ProtectedRoute)
