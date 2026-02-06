@@ -67,10 +67,10 @@ export default function Clock() {
             const defaultMsg =
               "You were marked absent for today and can no longer clock in. Please contact your administrator.";
 
-            // Only show the default "marked absent" message if the backend actually indicates absence.
-            // Otherwise we avoid confusing UI while status is still pending.
             const msg =
-              todayRecord?.message || todayRecord?.error || (absent ? defaultMsg : "");
+              todayRecord?.message ||
+              todayRecord?.error ||
+              (absent ? defaultMsg : "");
 
             setHasClockedInToday(hasClockIn || absent);
             setIsMarkedAbsent(absent);
@@ -81,7 +81,7 @@ export default function Clock() {
               setStatus(
                 todayRecord.breakIn && !todayRecord.breakOut
                   ? "on-break"
-                  : "clocked-in"
+                  : "clocked-in",
               );
               setStartTime(new Date(todayRecord.clockIn).getTime());
               if (todayRecord.breakIn && !todayRecord.breakOut) {
@@ -200,7 +200,7 @@ export default function Clock() {
       toast.success(
         `Clocked out! Total work time: ${data.durationFormatted}${
           data?.clockOut ? ` (Out: ${formatTimeSA(data.clockOut)})` : ""
-        }`
+        }`,
       );
     } catch (error) {
       toast.error(error.message);
@@ -257,7 +257,7 @@ export default function Clock() {
       setStartTime(now - accumulatedTime);
 
       toast.success(
-        `Break ended. Break duration: ${data.breakDurationFormatted}`
+        `Break ended. Break duration: ${data.breakDurationFormatted}`,
       );
     } catch (error) {
       toast.error(error.message);
