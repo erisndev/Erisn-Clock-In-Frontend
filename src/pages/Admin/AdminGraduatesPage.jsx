@@ -6,21 +6,25 @@ import api from "../../services/Api";
 import toast from "react-hot-toast";
 
 const DEPARTMENTS = [
+  "Data Analyst",
+  "Marketing & Sales ",
+  "CyberSecurity",
   "Software Development",
-  "Data Science",
-  "UI/UX Design",
+  "Fintech (Blockchain)",
+  "Search Engine Optimization (SEO)",
+  "Graphic Design",
+  "LMS Administration",
   "Project Management",
-  "Quality Assurance",
-  "DevOps",
-  "Business Analysis",
-  "Cybersecurity",
+  "Finance",
+  "Human Resource Management",
 ];
 
 export default function AdminGraduatesPage() {
   const [graduates, setGraduates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState("All Departments");
+  const [selectedDepartment, setSelectedDepartment] =
+    useState("All Departments");
   const navigate = useNavigate();
   const hasFetched = useRef(false);
 
@@ -51,7 +55,8 @@ export default function AdminGraduatesPage() {
         (g.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (g.email || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesDepartment =
-        selectedDepartment === "All Departments" || g.department === selectedDepartment;
+        selectedDepartment === "All Departments" ||
+        g.department === selectedDepartment;
       return matchesSearch && matchesDepartment;
     });
   }, [graduates, searchQuery, selectedDepartment]);
@@ -109,10 +114,15 @@ export default function AdminGraduatesPage() {
               onChange={(e) => setSelectedDepartment(e.target.value)}
               className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer w-full sm:min-w-[200px]"
             >
-              <option value="All Departments" className="bg-[#1a1a1a]">All Departments</option>
+              <option value="All Departments" className="bg-[#1a1a1a]">
+                All Departments
+              </option>
               {DEPARTMENTS.map((dept) => (
                 <option key={dept} value={dept} className="bg-[#1a1a1a]">
-                  {dept} {departmentCounts[dept] ? `(${departmentCounts[dept]})` : "(0)"}
+                  {dept}{" "}
+                  {departmentCounts[dept]
+                    ? `(${departmentCounts[dept]})`
+                    : "(0)"}
                 </option>
               ))}
             </select>
@@ -148,7 +158,9 @@ export default function AdminGraduatesPage() {
             className="stat-card"
           >
             <span className="stat-label">Departments</span>
-            <span className="stat-value text-blue-400">{Object.keys(departmentCounts).length}</span>
+            <span className="stat-value text-blue-400">
+              {Object.keys(departmentCounts).length}
+            </span>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -158,7 +170,7 @@ export default function AdminGraduatesPage() {
           >
             <span className="stat-label">Verified</span>
             <span className="stat-value text-brand-red">
-              {graduates.filter(g => g.isEmailVerified).length}
+              {graduates.filter((g) => g.isEmailVerified).length}
             </span>
           </motion.div>
         </div>
@@ -209,7 +221,9 @@ export default function AdminGraduatesPage() {
                         <CheckCircleIcon className="w-4 h-4 text-emerald-400" />
                       )}
                     </div>
-                    <p className="text-sm text-white/50 truncate">{graduate.email}</p>
+                    <p className="text-sm text-white/50 truncate">
+                      {graduate.email}
+                    </p>
                     {graduate.department && (
                       <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
                         {graduate.department}
@@ -264,40 +278,90 @@ function Spinner({ className }) {
 // Icons
 function SearchIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+      />
     </svg>
   );
 }
 
 function UsersIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
+      />
     </svg>
   );
 }
 
 function ChevronRightIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.25 4.5l7.5 7.5-7.5 7.5"
+      />
     </svg>
   );
 }
 
 function ChevronDownIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+      />
     </svg>
   );
 }
 
 function CheckCircleIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
   );
 }
