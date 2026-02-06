@@ -1,20 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useScrollLock from "../../hooks/useScrollLock";
 import { useAuth } from "../../context/AuthContext";
+import { Spinner } from "../../components/ui/spinner";
 
-export default function DashboardLayout({ role = "graduate", children }) {
+export default function DashboardLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, loading, logout } = useAuth();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   // Lock scroll when mobile sidebar or logout modal is open
   useScrollLock(mobileOpen || logoutOpen);
+
+  // ⛔️ Wait until auth is fully resolved
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+        <Spinner className="h-8 w-8 text-white/70" />
+      </div>
+    );
+  }
+
+  // Extra safety (should never happen because of ProtectedRoute)
+  if (!user) {
+    navigate("/login", { replace: true });
+    return null;
+  }
+
+  const role = user.role;
+
+  // 🛡️ Auto-correct wrong dashboard access
+  useEffect(() => {
+    if (role === "admin" && !location.pathname.startsWith("/admin")) {
+      navigate("/admin/dashboard", { replace: true });
+    }
+
+    if (role !== "admin" && location.pathname.startsWith("/admin")) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [role, location.pathname, navigate]);
 
   const graduateLinks = [
     { to: "/dashboard", label: "Overview", icon: HomeIcon },
@@ -37,19 +67,18 @@ export default function DashboardLayout({ role = "graduate", children }) {
   const NavLink = ({ link, onClick }) => {
     const active = location.pathname === link.to;
     const Icon = link.icon;
+
     return (
       <Link
         to={link.to}
         onClick={onClick}
-        className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+        className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
           active
-            ? "bg-brand-red text-white shadow-lg shadow-brand-red/25"
+            ? "bg-brand-red text-white"
             : "text-white/60 hover:text-white hover:bg-white/[0.06]"
         }`}
       >
-        <Icon
-          className={`w-5 h-5 ${active ? "text-white" : "text-white/40 group-hover:text-white/70"}`}
-        />
+        <Icon className="w-5 h-5" />
         {link.label}
       </Link>
     );
