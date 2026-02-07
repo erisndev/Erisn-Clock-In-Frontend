@@ -83,15 +83,31 @@ export default function GraduateDashboard() {
 
   const recentEntries = Array.isArray(timesheet)
     ? timesheet
-        // Recent Activity should show actual clock-in sessions, not auto-marked absent workday records.
+        // Recent Activity should show real clock-in sessions.
+        //
+        // We sometimes receive non-session "workday" records (e.g. auto-absent placeholders)
+        // or placeholder/epoch-ish timestamps from the API. Those can show up as weird times
+        // (e.g. 2:00 AM) even though no real clock-in exists in the DB.
         .filter((entry) => {
           const attendanceStatus = String(entry?.attendanceStatus || "").toLowerCase();
           const isAutoAbsentWorkday =
             (attendanceStatus === "absent" && entry?.autoMarkedAbsent === true) ||
             (entry?.type === "workday" && attendanceStatus === "absent" && !entry?.clockIn);
 
-          return !isAutoAbsentWorkday;
+          if (isAutoAbsentWorkday) return false;
+
+          // Must have a valid clockIn date
+          if (!entry?.clockIn) return false;
+          const clockInDate = new Date(entry.clockIn);
+          if (Number.isNaN(clockInDate.getTime())) return false;
+
+          // Guard against epoch/placeholder values
+          if (clockInDate.getFullYear() < 2000) return false;
+
+          return true;
         })
+        // Ensure most recent first even if backend order changes
+        .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())
         .slice(0, 5)
     : [];
 
@@ -257,6 +273,9 @@ export default function GraduateDashboard() {
                       })
                     : "";
 
+                  const safeClockIn = entry?.clockIn ? new Date(entry.clockIn) : null;
+                  const safeClockOut = entry?.clockOut ? new Date(entry.clockOut) : null;
+
                   return (
                     <div
                       key={entry._id}
@@ -273,23 +292,19 @@ export default function GraduateDashboard() {
                           <p className="text-xs text-white/50">
                             <span>{activityDate}</span>
                             <span className="mx-1">•</span>
-                            {new Date(entry.clockIn).toLocaleTimeString(
-                              "en-US",
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                            {entry.clockOut && (
+                            {safeClockIn && !Number.isNaN(safeClockIn.getTime())
+                              ? safeClockIn.toLocaleTimeString("en-US", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "-"}
+                            {safeClockOut && !Number.isNaN(safeClockOut.getTime()) && (
                               <>
                                 {" - "}
-                                {new Date(entry.clockOut).toLocaleTimeString(
-                                  "en-US",
-                                  {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }
-                                )}
+                                {safeClockOut.toLocaleTimeString("en-US", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </>
                             )}
                           </p>
