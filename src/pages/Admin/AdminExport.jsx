@@ -139,7 +139,7 @@ export default function AdminExport() {
                   className="w-full appearance-none bg-black/50 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all cursor-pointer"
                 >
                   <option value="" className="bg-[#1a1a1a]">
-                    All Users
+                    All Graduates
                   </option>
                   {users.map((user) => (
                     <option
