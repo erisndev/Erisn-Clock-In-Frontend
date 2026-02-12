@@ -18,7 +18,7 @@ export default function AdminExport() {
     const loadUsers = async () => {
       try {
         const response = await api.admin.getGraduates();
-        const grads = Array.isArray(response) ? response : (response.data || []);
+        const grads = Array.isArray(response) ? response : response.data || [];
         setUsers(grads);
       } catch (error) {
         console.error("Failed to load users:", error);
@@ -45,43 +45,52 @@ export default function AdminExport() {
 
   const handleExport = async () => {
     setLoading(true);
+
     try {
       let response;
-      
+
       if (selectedUser) {
-        // Export specific user's attendance
+        // 👤 Export one user
         response = await api.attendance.exportUser(selectedUser, {
           year: year.toString(),
           month: month.toString(),
-          type: format
+          type: format,
         });
       } else {
-        // Export all users' attendance
-        response = await api.attendance.exportMonthly({
+        // 👥 Export ALL users → ZIP
+        response = await api.attendance.exportAllZip({
           year: year.toString(),
           month: month.toString(),
-          type: format
+          type: format,
         });
       }
 
-      // Download the file
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      
-      const monthName = monthOptions.find(m => m.value === month)?.label || month;
-      const userName = selectedUser 
-        ? users.find(u => u._id === selectedUser)?.name?.replace(/[^a-z0-9]/gi, "_").toLowerCase() || "user"
-        : "all_users";
-      a.download = `attendance_${userName}_${monthName}_${year}.${format}`;
-      
+
+      const monthName =
+        monthOptions.find((m) => m.value === month)?.label || month;
+
+      if (selectedUser) {
+        const userName =
+          users
+            .find((u) => u._id === selectedUser)
+            ?.name?.replace(/[^a-z0-9]/gi, "_")
+            .toLowerCase() || "user";
+
+        a.download = `attendance_${userName}_${monthName}_${year}.${format}`;
+      } else {
+        a.download = `attendance_all_users_${monthName}_${year}.zip`;
+      }
+
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      
-      toast.success(`Attendance exported as ${format.toUpperCase()}`);
+
+      toast.success("Attendance exported successfully");
     } catch (error) {
       console.error("Export failed:", error);
       toast.error(error.message || "Failed to export attendance");
@@ -129,18 +138,21 @@ export default function AdminExport() {
                   disabled={loadingUsers}
                   className="w-full appearance-none bg-black/50 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all cursor-pointer"
                 >
-                  <option value="" className="bg-[#1a1a1a]">All Graduates</option>
+                  <option value="" className="bg-[#1a1a1a]">
+                    All Users
+                  </option>
                   {users.map((user) => (
-                    <option key={user._id} value={user._id} className="bg-[#1a1a1a]">
+                    <option
+                      key={user._id}
+                      value={user._id}
+                      className="bg-[#1a1a1a]"
+                    >
                       {user.name} ({user.email})
                     </option>
                   ))}
                 </select>
                 <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
-              <p className="text-xs text-white/40 mt-1">
-                Leave empty to export all graduates' attendance
-              </p>
             </div>
 
             {/* Year */}
@@ -176,7 +188,11 @@ export default function AdminExport() {
                   className="w-full appearance-none bg-black/50 border border-white/10 rounded-xl px-4 py-3 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all cursor-pointer"
                 >
                   {monthOptions.map((m) => (
-                    <option key={m.value} value={m.value} className="bg-[#1a1a1a]">
+                    <option
+                      key={m.value}
+                      value={m.value}
+                      className="bg-[#1a1a1a]"
+                    >
                       {m.label}
                     </option>
                   ))}
@@ -252,9 +268,12 @@ export default function AdminExport() {
                 <DocumentIcon className="w-5 h-5 text-brand-red" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white mb-1">PDF Format</h3>
+                <h3 className="text-sm font-semibold text-white mb-1">
+                  PDF Format
+                </h3>
                 <p className="text-xs text-white/50">
-                  Formatted document with summary statistics, employee info, and daily attendance table. Best for printing and sharing.
+                  Formatted document with summary statistics, employee info, and
+                  daily attendance table. Best for printing and sharing.
                 </p>
               </div>
             </div>
@@ -271,9 +290,12 @@ export default function AdminExport() {
                 <TableIcon className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white mb-1">CSV Format</h3>
+                <h3 className="text-sm font-semibold text-white mb-1">
+                  CSV Format
+                </h3>
                 <p className="text-xs text-white/50">
-                  Raw data in spreadsheet format with all attendance details. Best for data analysis and importing into Excel.
+                  Raw data in spreadsheet format with all attendance details.
+                  Best for data analysis and importing into Excel.
                 </p>
               </div>
             </div>
@@ -342,32 +364,72 @@ function Spinner({ className }) {
 
 function DownloadIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+      />
     </svg>
   );
 }
 
 function DocumentIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+      />
     </svg>
   );
 }
 
 function TableIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125M13.125 12h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125M20.625 12c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5M12 14.625v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 14.625c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m0 1.5v-1.5m0 0c0-.621.504-1.125 1.125-1.125m0 0h7.5"
+      />
     </svg>
   );
 }
 
 function ChevronDownIcon({ className }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+      />
     </svg>
   );
 }

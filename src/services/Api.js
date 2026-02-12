@@ -30,7 +30,6 @@ export const clearToken = () => {
 const request = async (endpoint, options = {}) => {
   const url = `${BASE_URL}${endpoint}`;
 
-  
   const headers = {
     "Content-Type": "application/json",
     ...options.headers,
@@ -265,13 +264,27 @@ export const attendance = {
     }
     return response;
   },
+  exportAllZip: async (params) => {
+    const query = new URLSearchParams(params).toString();
+    const response = await fetch(`${BASE_URL}/attendance/export-zip?${query}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message);
+    }
+
+    return response;
+  },
+
   exportUser: async (userId, params) => {
     const query = new URLSearchParams(params).toString();
     const response = await fetch(
       `${BASE_URL}/attendance/export/${userId}?${query}`,
       {
         headers: { Authorization: `Bearer ${getToken()}` },
-      }
+      },
     );
     if (!response.ok) {
       const error = await response.json();
