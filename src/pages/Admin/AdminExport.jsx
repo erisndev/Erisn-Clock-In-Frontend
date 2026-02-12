@@ -13,6 +13,8 @@ export default function AdminExport() {
   const [loading, setLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(true);
 
+  const isAllSelected = selectedUser === "";
+
   // Load users for the dropdown
   useEffect(() => {
     const loadUsers = async () => {
@@ -98,6 +100,12 @@ export default function AdminExport() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isAllSelected && format === "csv") {
+      setFormat("pdf");
+    }
+  }, [isAllSelected, format]);
 
   return (
     <DashboardLayout role="admin">
@@ -221,11 +229,16 @@ export default function AdminExport() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFormat("csv")}
+                  onClick={() => !isAllSelected && setFormat("csv")}
+                  disabled={isAllSelected}
                   className={`py-3 px-4 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
                     format === "csv"
                       ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
-                      : "bg-white/[0.05] text-white/60 border border-white/10 hover:bg-white/10"
+                      : "bg-white/[0.05] text-white/60 border border-white/10"
+                  } ${
+                    isAllSelected
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-white/10"
                   }`}
                 >
                   <TableIcon className="w-5 h-5" />
