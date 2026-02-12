@@ -43,7 +43,6 @@ self.addEventListener("notificationclick", (event) => {
   const url =
     (event.notification?.data && event.notification.data.url) ||
     "/notifications";
-  console.log("Notification click - navigating to:", url);
 
   event.waitUntil(
     (async () => {
