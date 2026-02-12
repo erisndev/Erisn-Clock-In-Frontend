@@ -40,11 +40,17 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const url = (event.notification?.data && event.notification.data.url) || "/notifications";
+  const url =
+    (event.notification?.data && event.notification.data.url) ||
+    "/notifications";
+  console.log("Notification click - navigating to:", url);
 
   event.waitUntil(
     (async () => {
-      const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+      const allClients = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
 
       // Focus an existing tab if possible
       for (const client of allClients) {
@@ -61,6 +67,6 @@ self.addEventListener("notificationclick", (event) => {
       if (clients.openWindow) {
         await clients.openWindow(url);
       }
-    })()
+    })(),
   );
 });
