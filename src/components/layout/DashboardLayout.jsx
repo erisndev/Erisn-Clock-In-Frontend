@@ -51,7 +51,7 @@ export default function DashboardLayout({ children }) {
 
   const adminLinks = [
     { to: "/admin/dashboard", label: "Overview", icon: HomeIcon },
-    { to: "/admin/reports", label: "Reports Queue", icon: InboxIcon },
+    { to: "/admin/reports", label: "Reports", icon: InboxIcon },
     { to: "/admin/graduates", label: "Graduates", icon: UsersIcon },
     { to: "/admin/export", label: "Export", icon: DownloadIcon },
   ];

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/Api";
@@ -8,6 +8,36 @@ import { useAuth } from "../../context/AuthContext";
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  // If token exists and is still valid, redirect straight to the correct dashboard.
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkExistingSession = async () => {
+      const token = api.getToken();
+      if (!token) return;
+
+      try {
+        const userData = await api.user.getProfile();
+        if (cancelled) return;
+
+        if (userData?.role === "admin") {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      } catch (e) {
+        // Invalid/expired token
+        api.clearToken();
+      }
+    };
+
+    checkExistingSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
