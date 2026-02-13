@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import useScrollLock from "../../hooks/useScrollLock";
@@ -64,7 +64,8 @@ function generateWeekOptions() {
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(false);
   const [viewReport, setViewReport] = useState(null);
   const [feedbackReport, setFeedbackReport] = useState(null);
   const [feedback, setFeedback] = useState("");
@@ -83,8 +84,12 @@ export default function AdminReportsPage() {
   const weekOptions = useMemo(() => generateWeekOptions(), []);
 
   // Load reports from API
-  const loadReports = async () => {
-    setLoading(true);
+  const loadReports = async (isInitial = false) => {
+    if (isInitial) {
+      setInitialLoading(true);
+    } else {
+      setContentLoading(true);
+    }
     try {
       const params = {};
 
@@ -115,11 +120,23 @@ export default function AdminReportsPage() {
       console.error("Failed to load reports:", error);
       toast.error("Failed to load reports");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setContentLoading(false);
     }
   };
 
+  // Initial load
   useEffect(() => {
+    loadReports(true);
+  }, []);
+
+  // Auto-filter on filter changes (skip initial)
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     loadReports();
   }, [statusFilter, selectedWeek]);
 
@@ -359,12 +376,12 @@ export default function AdminReportsPage() {
           </div>
 
           {/* Reports Grid */}
-          {loading ? (
+          {initialLoading ? (
             <div className="glass-card p-12 text-center">
               <Spinner className="w-8 h-8 mx-auto mb-4" />
               <p className="text-white/50">Loading reports...</p>
             </div>
-          ) : filteredReports.length === 0 ? (
+          ) : filteredReports.length === 0 && !contentLoading ? (
             <div className="glass-card p-12 text-center">
               <InboxIcon className="w-12 h-12 mx-auto mb-4 text-white/20" />
               <h3 className="text-lg font-semibold text-white mb-2">
@@ -377,7 +394,15 @@ export default function AdminReportsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {contentLoading && (
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
+                  <div className="flex items-center gap-3 text-white/70">
+                    <Spinner className="w-5 h-5" />
+                    <span className="text-sm font-medium">Loading...</span>
+                  </div>
+                </div>
+              )}
               {filteredReports.map((report, index) => (
                 <motion.div
                   key={report._id}

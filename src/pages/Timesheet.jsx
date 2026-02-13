@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import api from "../services/Api";
 import toast from "react-hot-toast";
@@ -6,10 +6,17 @@ import { formatDateSA, formatTimeSA } from "../utils/time";
 
 export default function Timesheet() {
   const [entries, setEntries] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return (now.getMonth() + 1).toString().padStart(2, "0");
+  });
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return new Date().getFullYear().toString();
+  });
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
   const [, forceTick] = useState(0);
+  const isFirstRender = useRef(true);
 
   // Generate year options (current year and 2 years back)
   const currentYear = new Date().getFullYear();
@@ -31,17 +38,13 @@ export default function Timesheet() {
     { value: "12", label: "December" },
   ];
 
-  // Keep refs in sync so loadHistory can always read the latest filter values
-  const monthRef = useRef(selectedMonth);
-  const yearRef = useRef(selectedYear);
-  useEffect(() => { monthRef.current = selectedMonth; }, [selectedMonth]);
-  useEffect(() => { yearRef.current = selectedYear; }, [selectedYear]);
+  const loadHistory = async (month, year, isInitial = false) => {
+    if (isInitial) {
+      setInitialLoading(true);
+    } else {
+      setTableLoading(true);
+    }
 
-  const loadHistory = useCallback(async (overrideMonth, overrideYear) => {
-    const month = overrideMonth !== undefined ? overrideMonth : monthRef.current;
-    const year = overrideYear !== undefined ? overrideYear : yearRef.current;
-
-    setLoading(true);
     try {
       const params = {};
 
@@ -73,9 +76,7 @@ export default function Timesheet() {
         : [];
 
       // Defensive filtering: ignore clearly-invalid placeholder records
-      // (e.g. epoch/1970 dates) which can show up from backend seed/default values.
       const sanitizedEntries = entriesArray.filter((entry) => {
-        // Include "absent"/"pending" day records (no clockIn) as well.
         const statusStr = String(
           entry?.attendanceStatus || entry?.status || entry?.state || ""
         ).toLowerCase();
@@ -91,7 +92,6 @@ export default function Timesheet() {
 
         const clockIn = entry?.clockIn ? new Date(entry.clockIn) : null;
         if (!clockIn || Number.isNaN(clockIn.getTime())) return false;
-        // Anything before year 2000 is almost certainly a placeholder (epoch-like).
         return clockIn.getFullYear() >= 2000;
       });
 
@@ -100,9 +100,26 @@ export default function Timesheet() {
       console.error("Failed to load timesheet:", error);
       toast.error("Failed to load timesheet");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setTableLoading(false);
     }
+  };
+
+  // Initial load on mount
+  useEffect(() => {
+    loadHistory(selectedMonth, selectedYear, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-filter when dropdowns change (skip the first render since mount effect handles it)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    loadHistory(selectedMonth, selectedYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth, selectedYear]);
 
   // Optional: make open-session durations tick live
   useEffect(() => {
@@ -176,25 +193,10 @@ export default function Timesheet() {
   const clearFilters = () => {
     setSelectedMonth("");
     setSelectedYear("");
-    // Pass empty overrides so loadHistory uses cleared values (avoids stale closure)
-    loadHistory("", "");
   };
 
-  const applyFilters = () => {
-    loadHistory();
-  };
-
-  // Set current month/year as default on mount, then trigger initial load
-  useEffect(() => {
-    const now = new Date();
-    const m = (now.getMonth() + 1).toString().padStart(2, "0");
-    const y = now.getFullYear().toString();
-    setSelectedYear(y);
-    setSelectedMonth(m);
-    loadHistory(m, y);
-  }, []);
-
-  if (loading) return <div>Loading timesheet...</div>;
+  // Full-page skeleton only on very first load
+  if (initialLoading) return <div>Loading timesheet...</div>;
 
   return (
     <div className="space-y-6">
@@ -272,9 +274,6 @@ export default function Timesheet() {
               ))}
             </select>
           </div>
-          <button onClick={applyFilters} className="btn-primary py-3">
-            Search
-          </button>
           <button onClick={clearFilters} className="btn-secondary py-3">
             Clear
           </button>
@@ -293,8 +292,37 @@ export default function Timesheet() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="glass-card overflow-hidden"
+        className="glass-card overflow-hidden relative"
       >
+        {/* Table loading overlay — only covers the table, not the whole page */}
+        {tableLoading && (
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
+            <div className="flex items-center gap-3 text-white/70">
+              <svg
+                className="animate-spin h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              <span className="text-sm font-medium">Loading...</span>
+            </div>
+          </div>
+        )}
+
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
@@ -341,7 +369,10 @@ export default function Timesheet() {
                           {entry.durationFormatted || formatDuration(entry)}
                         </span>
                       ) : String(
-                          entry?.attendanceStatus || entry?.status || entry?.state || ""
+                          entry?.attendanceStatus ||
+                            entry?.status ||
+                            entry?.state ||
+                            ""
                         ).toLowerCase() === "absent" ||
                         entry?.isAbsent === true ||
                         entry?.markedAbsent === true ||
@@ -389,7 +420,10 @@ export default function Timesheet() {
                       {entry.durationFormatted || formatDuration(entry)}
                     </span>
                   ) : String(
-                      entry?.attendanceStatus || entry?.status || entry?.state || ""
+                      entry?.attendanceStatus ||
+                        entry?.status ||
+                        entry?.state ||
+                        ""
                     ).toLowerCase() === "absent" ||
                     entry?.isAbsent === true ||
                     entry?.markedAbsent === true ||
