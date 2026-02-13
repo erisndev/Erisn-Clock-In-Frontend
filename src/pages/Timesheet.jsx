@@ -48,22 +48,12 @@ export default function Timesheet() {
     try {
       const params = {};
 
-      // Calculate date range based on selected month/year
-      if (month && year) {
-        const yearNum = parseInt(year);
-        const monthNum = parseInt(month);
-        const startDate = `${yearNum}-${month}-01`;
-        // Get last day of month
-        const lastDay = new Date(yearNum, monthNum, 0).getDate();
-        const endDate = `${yearNum}-${month}-${lastDay
-          .toString()
-          .padStart(2, "0")}`;
-        params.startDate = startDate;
-        params.endDate = endDate;
-      } else if (year && !month) {
-        // If only year selected, get whole year
-        params.startDate = `${year}-01-01`;
-        params.endDate = `${year}-12-31`;
+      // Send month and year as query params for backend filtering
+      if (month) {
+        params.month = parseInt(month).toString();
+      }
+      if (year) {
+        params.year = year.toString();
       }
 
       const response = await api.attendance.getHistory(params);
@@ -95,7 +85,26 @@ export default function Timesheet() {
         return clockIn.getFullYear() >= 2000;
       });
 
-      setEntries(sanitizedEntries);
+      // Client-side month/year filtering as fallback in case backend
+      // does not honour the month/year query params
+      const filtered = sanitizedEntries.filter((entry) => {
+        const dateStr = entry?.clockIn || entry?.date;
+        if (!dateStr) return true; // keep entries without a date (e.g. absent markers)
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return true;
+
+        if (year) {
+          const yearNum = parseInt(year);
+          if (d.getFullYear() !== yearNum) return false;
+        }
+        if (month) {
+          const monthNum = parseInt(month);
+          if (d.getMonth() + 1 !== monthNum) return false;
+        }
+        return true;
+      });
+
+      setEntries(filtered);
     } catch (error) {
       console.error("Failed to load timesheet:", error);
       toast.error("Failed to load timesheet");
