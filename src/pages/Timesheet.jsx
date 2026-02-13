@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import api from "../services/Api";
 import toast from "react-hot-toast";
@@ -31,27 +31,36 @@ export default function Timesheet() {
     { value: "12", label: "December" },
   ];
 
-  const loadHistory = async () => {
+  // Keep refs in sync so loadHistory can always read the latest filter values
+  const monthRef = useRef(selectedMonth);
+  const yearRef = useRef(selectedYear);
+  useEffect(() => { monthRef.current = selectedMonth; }, [selectedMonth]);
+  useEffect(() => { yearRef.current = selectedYear; }, [selectedYear]);
+
+  const loadHistory = useCallback(async (overrideMonth, overrideYear) => {
+    const month = overrideMonth !== undefined ? overrideMonth : monthRef.current;
+    const year = overrideYear !== undefined ? overrideYear : yearRef.current;
+
     setLoading(true);
     try {
       const params = {};
 
       // Calculate date range based on selected month/year
-      if (selectedMonth && selectedYear) {
-        const year = parseInt(selectedYear);
-        const month = parseInt(selectedMonth);
-        const startDate = `${year}-${selectedMonth}-01`;
+      if (month && year) {
+        const yearNum = parseInt(year);
+        const monthNum = parseInt(month);
+        const startDate = `${yearNum}-${month}-01`;
         // Get last day of month
-        const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${selectedMonth}-${lastDay
+        const lastDay = new Date(yearNum, monthNum, 0).getDate();
+        const endDate = `${yearNum}-${month}-${lastDay
           .toString()
           .padStart(2, "0")}`;
         params.startDate = startDate;
         params.endDate = endDate;
-      } else if (selectedYear && !selectedMonth) {
+      } else if (year && !month) {
         // If only year selected, get whole year
-        params.startDate = `${selectedYear}-01-01`;
-        params.endDate = `${selectedYear}-12-31`;
+        params.startDate = `${year}-01-01`;
+        params.endDate = `${year}-12-31`;
       }
 
       const response = await api.attendance.getHistory(params);
@@ -93,11 +102,7 @@ export default function Timesheet() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadHistory();
-  }, [selectedMonth, selectedYear]);
+  }, []);
 
   // Optional: make open-session durations tick live
   useEffect(() => {
@@ -171,13 +176,22 @@ export default function Timesheet() {
   const clearFilters = () => {
     setSelectedMonth("");
     setSelectedYear("");
+    // Pass empty overrides so loadHistory uses cleared values (avoids stale closure)
+    loadHistory("", "");
   };
 
-  // Set current month/year as default on mount
+  const applyFilters = () => {
+    loadHistory();
+  };
+
+  // Set current month/year as default on mount, then trigger initial load
   useEffect(() => {
     const now = new Date();
-    setSelectedYear(now.getFullYear().toString());
-    setSelectedMonth((now.getMonth() + 1).toString().padStart(2, "0"));
+    const m = (now.getMonth() + 1).toString().padStart(2, "0");
+    const y = now.getFullYear().toString();
+    setSelectedYear(y);
+    setSelectedMonth(m);
+    loadHistory(m, y);
   }, []);
 
   if (loading) return <div>Loading timesheet...</div>;
@@ -249,7 +263,6 @@ export default function Timesheet() {
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="input-field appearance-none cursor-pointer"
-              disabled={!selectedYear}
             >
               <option value="">All Months</option>
               {months.map((month) => (
@@ -259,6 +272,9 @@ export default function Timesheet() {
               ))}
             </select>
           </div>
+          <button onClick={applyFilters} className="btn-primary py-3">
+            Search
+          </button>
           <button onClick={clearFilters} className="btn-secondary py-3">
             Clear
           </button>
