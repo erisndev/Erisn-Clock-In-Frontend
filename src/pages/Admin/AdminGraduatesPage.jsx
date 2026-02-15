@@ -25,6 +25,7 @@ export default function AdminGraduatesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartment, setSelectedDepartment] =
     useState("All Departments");
+  const [selectedProvince, setSelectedProvince] = useState("All Provinces");
   const navigate = useNavigate();
   const hasFetched = useRef(false);
 
@@ -49,6 +50,14 @@ export default function AdminGraduatesPage() {
     loadGraduates();
   }, []);
 
+  const provinces = useMemo(() => {
+    const unique = new Set();
+    graduates.forEach((g) => {
+      if (g.province) unique.add(g.province);
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [graduates]);
+
   const filteredGraduates = useMemo(() => {
     return graduates.filter((g) => {
       const matchesSearch =
@@ -57,9 +66,12 @@ export default function AdminGraduatesPage() {
       const matchesDepartment =
         selectedDepartment === "All Departments" ||
         g.department === selectedDepartment;
-      return matchesSearch && matchesDepartment;
+      const matchesProvince =
+        selectedProvince === "All Provinces" ||
+        (g.province || "") === selectedProvince;
+      return matchesSearch && matchesDepartment && matchesProvince;
     });
-  }, [graduates, searchQuery, selectedDepartment]);
+  }, [graduates, searchQuery, selectedDepartment, selectedProvince]);
 
   const handleGraduateClick = (graduate) => {
     navigate(`/admin/graduates/${graduate._id}`);
@@ -123,6 +135,25 @@ export default function AdminGraduatesPage() {
                   {departmentCounts[dept]
                     ? `(${departmentCounts[dept]})`
                     : "(0)"}
+                </option>
+              ))}
+            </select>
+            <ChevronDownIcon className="w-4 h-4 text-white/40 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          {/* Province Filter */}
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={selectedProvince}
+              onChange={(e) => setSelectedProvince(e.target.value)}
+              className="appearance-none px-4 py-2.5 pr-10 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white outline-none focus:border-brand-red/50 cursor-pointer w-full sm:min-w-[180px]"
+            >
+              <option value="All Provinces" className="bg-[#1a1a1a]">
+                All Provinces
+              </option>
+              {provinces.map((prov) => (
+                <option key={prov} value={prov} className="bg-[#1a1a1a]">
+                  {prov}
                 </option>
               ))}
             </select>
