@@ -154,7 +154,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Total Graduates</span>
             <span className="stat-value">
-              {isLoading ? <LoadingDots /> : stats.totalGraduates}
+              {isLoading ? <Spinner /> : stats.totalGraduates}
             </span>
           </motion.div>
 
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Total Reports</span>
             <span className="stat-value text-blue-400">
-              {isLoading ? <LoadingDots /> : stats.totalReports}
+              {isLoading ? <Spinner /> : stats.totalReports}
             </span>
           </motion.div>
 
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">With Feedback</span>
             <span className="stat-value text-emerald-400">
-              {isLoading ? <LoadingDots /> : stats.withFeedback}
+              {isLoading ? <Spinner /> : stats.withFeedback}
             </span>
           </motion.div>
 
@@ -200,12 +200,15 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Awaiting Feedback</span>
             <span className="stat-value text-amber-400">
-              {isLoading ? <LoadingDots /> : stats.awaitingFeedback}
+              {isLoading ? <Spinner /> : stats.awaitingFeedback}
             </span>
           </motion.div>
         </div>
 
         {/* Content Grid */}
+        {isLoading ? (
+          <LoadingSkeleton />
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Reports */}
           <motion.div
@@ -310,6 +313,7 @@ export default function AdminDashboard() {
             )}
           </motion.div>
         </div>
+        )}
       </div>
     </DashboardLayout>
   );
@@ -370,13 +374,84 @@ function UsersIcon({ className }) {
   );
 }
 
-function LoadingDots() {
+function Spinner({ className = "w-5 h-5" }) {
   return (
-    <span className="inline-flex items-center gap-1" aria-label="Loading">
-      <span className="w-1.5 h-1.5 rounded-full bg-current/70 animate-bounce [animation-delay:-0.2s]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-current/70 animate-bounce [animation-delay:-0.1s]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-current/70 animate-bounce" />
-    </span>
+    <svg
+      className={`animate-spin text-white/60 ${className}`}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  );
+}
+
+function SkeletonLine({ className = "" }) {
+  return (
+    <div
+      className={`rounded-lg bg-white/[0.06] animate-pulse ${className}`}
+    />
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <SkeletonLine className="h-5 w-36" />
+          <SkeletonLine className="h-4 w-16" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+            >
+              <SkeletonLine className="w-10 h-10 rounded-lg shrink-0" />
+              <div className="flex-1 space-y-2">
+                <SkeletonLine className="h-4 w-32" />
+                <SkeletonLine className="h-3 w-48" />
+              </div>
+              <SkeletonLine className="h-6 w-16 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <SkeletonLine className="h-5 w-24" />
+          <SkeletonLine className="h-4 w-16" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+            >
+              <SkeletonLine className="w-10 h-10 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <SkeletonLine className="h-4 w-28" />
+                <SkeletonLine className="h-3 w-40" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
