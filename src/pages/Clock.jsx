@@ -429,7 +429,12 @@ export default function Clock() {
               */}
               {(() => {
                 const d = getDisplayDuration(currentAttendance);
-                const effectiveStartTime = Date.now() - (d?.durationMs || 0);
+
+                // Always drive the UI from the derived duration.
+                // When paused, Timer will display `pausedAt`.
+                // When running, Timer will display Date.now() - startTime.
+                const durationMs = d?.durationMs || 0;
+                const effectiveStartTime = Date.now() - durationMs;
 
                 // Pause work timer while on break.
                 if (status === "on-break" || d.isPaused) {
@@ -437,14 +442,12 @@ export default function Clock() {
                     <Timer
                       startTime={effectiveStartTime}
                       isRunning={false}
-                      pausedAt={d?.durationMs || 0}
+                      pausedAt={durationMs}
                     />
                   );
                 }
 
-                return (
-                  <Timer startTime={effectiveStartTime} isRunning={true} />
-                );
+                return <Timer startTime={effectiveStartTime} isRunning={true} />;
               })()}
             </motion.div>
           )}
