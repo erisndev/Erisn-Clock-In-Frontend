@@ -8,6 +8,8 @@ import toast from "react-hot-toast";
 import { formatTimeSA } from "../utils/time";
 import { getDisplayDuration } from "../utils/attendanceDuration";
 
+const BREAK_DURATION_MINUTES = 60;
+
 export default function Clock() {
   const [status, setStatus] = useState("clocked-out");
   const [startTime, setStartTime] = useState(null);
@@ -212,6 +214,17 @@ export default function Clock() {
   const handleStartBreak = async () => {
     setIsLoading(true);
     try {
+      // Best-effort: ensure the user has web push enabled so the backend can deliver
+      // the "Break almost over" reminder at minute 50.
+      // NOTE: Permission prompts must be triggered by a user gesture; this is one.
+      try {
+        await api.notifications.enablePush();
+      } catch (e) {
+        // Non-fatal: break should still start even if user denies/dismisses permission.
+        // eslint-disable-next-line no-console
+        console.warn("Push enable skipped/failed:", e);
+      }
+
       const response = await api.attendance.breakIn();
       const { data } = response;
 
@@ -401,7 +414,10 @@ export default function Clock() {
                   Break Time Remaining
                 </p>
               </div>
-              <BreakTimer startTime={breakStartTime} breakDuration={90} />
+              <BreakTimer
+                startTime={breakStartTime}
+                breakDuration={BREAK_DURATION_MINUTES}
+              />
             </motion.div>
           )}
         </AnimatePresence>
