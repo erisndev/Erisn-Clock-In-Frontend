@@ -208,9 +208,19 @@ export default function AdminGraduatesPage() {
 
         {/* Graduates Grid */}
         {loading ? (
-          <div className="glass-card p-12 text-center">
-            <Spinner className="w-8 h-8 mx-auto mb-4" />
-            <p className="text-white/50">Loading graduates...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="glass-card p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white/[0.06] animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 rounded bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-44 rounded bg-white/[0.06] animate-pulse" />
+                    <div className="h-5 w-24 rounded-md bg-white/[0.06] animate-pulse mt-1" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredGraduates.length === 0 ? (
           <div className="glass-card p-12 text-center">

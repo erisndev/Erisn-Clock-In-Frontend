@@ -213,8 +213,24 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <DashboardLayout role="graduate">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-white/50">Loading settings...</div>
+        <div className="space-y-6">
+          <div>
+            <div className="h-8 w-32 rounded-lg bg-white/[0.06] animate-pulse" />
+            <div className="h-4 w-56 rounded-md bg-white/[0.06] animate-pulse mt-2" />
+          </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="glass-card p-6">
+              <div className="h-6 w-28 rounded bg-white/[0.06] animate-pulse mb-4" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((j) => (
+                  <div key={j}>
+                    <div className="h-3 w-20 rounded bg-white/[0.06] animate-pulse mb-2" />
+                    <div className="h-11 rounded-xl bg-white/[0.06] animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </DashboardLayout>
     );

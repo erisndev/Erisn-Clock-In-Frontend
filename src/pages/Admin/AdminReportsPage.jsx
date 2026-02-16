@@ -377,9 +377,24 @@ export default function AdminReportsPage() {
 
           {/* Reports Grid */}
           {initialLoading ? (
-            <div className="glass-card p-12 text-center">
-              <Spinner className="w-8 h-8 mx-auto mb-4" />
-              <p className="text-white/50">Loading reports...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="glass-card p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="space-y-2">
+                      <div className="h-4 w-28 rounded bg-white/[0.06] animate-pulse" />
+                      <div className="h-3 w-40 rounded bg-white/[0.06] animate-pulse" />
+                    </div>
+                    <div className="h-6 w-16 rounded-full bg-white/[0.06] animate-pulse" />
+                  </div>
+                  <div className="h-12 rounded bg-white/[0.06] animate-pulse mb-4" />
+                  <div className="h-3 w-32 rounded bg-white/[0.06] animate-pulse mb-4" />
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-9 rounded-lg bg-white/[0.06] animate-pulse" />
+                    <div className="flex-1 h-9 rounded-lg bg-white/[0.06] animate-pulse" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredReports.length === 0 && !contentLoading ? (
             <div className="glass-card p-12 text-center">

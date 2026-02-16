@@ -147,11 +147,19 @@ export default function NotificationsPage() {
 
         {/* Notifications List */}
         {loading && notifications.length === 0 ? (
-          <div className="glass-card p-12 text-center">
-            <div className="flex items-center justify-center gap-3 text-white/50">
-              <Spinner />
-              <span>Loading notifications...</span>
-            </div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="glass-card p-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white/[0.06] animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 rounded bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-full max-w-xs rounded bg-white/[0.06] animate-pulse" />
+                    <div className="h-3 w-24 rounded bg-white/[0.06] animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : notifications.length === 0 ? (
           <motion.div

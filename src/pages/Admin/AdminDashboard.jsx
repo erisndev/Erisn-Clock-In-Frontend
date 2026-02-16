@@ -154,7 +154,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Total Graduates</span>
             <span className="stat-value">
-              {isLoading ? <Spinner /> : stats.totalGraduates}
+              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.totalGraduates}
             </span>
           </motion.div>
 
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Total Reports</span>
             <span className="stat-value text-blue-400">
-              {isLoading ? <Spinner /> : stats.totalReports}
+              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.totalReports}
             </span>
           </motion.div>
 
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">With Feedback</span>
             <span className="stat-value text-emerald-400">
-              {isLoading ? <Spinner /> : stats.withFeedback}
+              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.withFeedback}
             </span>
           </motion.div>
 
@@ -200,7 +200,7 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Awaiting Feedback</span>
             <span className="stat-value text-amber-400">
-              {isLoading ? <Spinner /> : stats.awaitingFeedback}
+              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.awaitingFeedback}
             </span>
           </motion.div>
         </div>
