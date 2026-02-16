@@ -9,6 +9,7 @@ import { formatTimeSA } from "../utils/time";
 import { getDisplayDuration } from "../utils/attendanceDuration";
 
 const BREAK_DURATION_MINUTES = 60;
+const STATUS_POLL_INTERVAL_MS = 30_000;
 
 export default function Clock() {
   const [status, setStatus] = useState("clocked-out");
@@ -150,6 +151,51 @@ export default function Clock() {
     currentAttendance?.breakIn,
     currentAttendance?.breakOut,
   ]);
+
+  // Break can be auto-ended by the backend at 60 minutes. If the user leaves this
+  // page open and never clicks "Break Out", we should periodically refresh status
+  // so UI flips back to "clocked-in" when breakOut is set by the system.
+  useEffect(() => {
+    if (status !== "on-break") return;
+
+    const id = setInterval(async () => {
+      try {
+        const response = await api.attendance.getStatus();
+        const { status: currentStatus, data } = response;
+
+        // If backend says break is no longer active, update UI state.
+        if (currentStatus === "clocked-in" && data) {
+          setCurrentAttendance((prev) => ({ ...(prev || {}), ...data }));
+          setStatus("clocked-in");
+          setBreakStartTime(null);
+          setBreakTaken(true);
+
+          // If backend duration is available, use it to drive timer.
+          if (typeof data?.duration === "number" && data.duration > 0) {
+            setStartTime(Date.now() - data.duration);
+          } else {
+            setStartTime((prev) => prev);
+          }
+
+          toast.success("Break ended automatically by system.");
+        }
+
+        // Also handle if backend returns clocked-out (edge case)
+        if (currentStatus === "clocked-out") {
+          setCurrentAttendance(null);
+          setStatus("clocked-out");
+          setStartTime(null);
+          setBreakStartTime(null);
+          setAccumulatedTime(0);
+          setBreakTaken(false);
+        }
+      } catch {
+        // ignore polling failures
+      }
+    }, STATUS_POLL_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  }, [status]);
 
   const handleClockIn = async () => {
     if (hasClockedInToday || isMarkedAbsent) return;

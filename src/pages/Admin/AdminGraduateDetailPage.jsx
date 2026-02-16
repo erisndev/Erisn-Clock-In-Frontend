@@ -604,6 +604,24 @@ export default function AdminGraduateDetailPage() {
                         {day.hours > 0 ? day.hours.toFixed(2) : "-"}
                       </td>
                       <td className="table-cell">
+                        {day.entries?.some(
+                          (e) =>
+                            e?.breakEndedBySystem === true ||
+                            e?.breakEndedBySystem === "true",
+                        ) && (
+                          <span className="inline-flex mr-2 mb-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
+                            System break end
+                          </span>
+                        )}
+                        {day.entries?.some(
+                          (e) =>
+                            typeof e?.breakOverdueMs === "number" &&
+                            e.breakOverdueMs > 0,
+                        ) && (
+                          <span className="inline-flex mr-2 mb-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
+                            Overdue deducted
+                          </span>
+                        )}
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
                             day.status === "present"
@@ -623,6 +641,13 @@ export default function AdminGraduateDetailPage() {
                             ? "Absent"
                             : "Upcoming"}
                         </span>
+
+                        {day.entries?.some((e) => e?.breakOverdueNote) && (
+                          <div className="text-[11px] text-white/50 mt-1 line-clamp-2">
+                            {day.entries.find((e) => e?.breakOverdueNote)
+                              ?.breakOverdueNote || ""}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -426,8 +426,26 @@ export default function Timesheet() {
                         <span className="text-white/30">-</span>
                       )}
                     </td>
-                    <td className="table-cell text-white/50 max-w-[200px] truncate">
-                      {entry.notes || "-"}
+                    <td className="table-cell text-white/50 max-w-[200px]">
+                      <div className="flex flex-col gap-1">
+                        {(entry?.breakEndedBySystem === true ||
+                          entry?.breakEndedBySystem === "true") && (
+                          <span className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
+                            Break ended by system
+                          </span>
+                        )}
+
+                        {typeof entry?.breakOverdueMs === "number" &&
+                          entry.breakOverdueMs > 0 && (
+                            <span className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
+                              Overdue deducted
+                            </span>
+                          )}
+
+                        <span className="truncate">
+                          {entry.breakOverdueNote || entry.notes || "-"}
+                        </span>
+                      </div>
                     </td>
                   </motion.tr>
                 ))
@@ -483,9 +501,23 @@ export default function Timesheet() {
                     Out: {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
                   </span>
                 </div>
-                {entry.notes && (
+                {(entry?.breakEndedBySystem === true ||
+                  entry?.breakEndedBySystem === "true") && (
+                  <div className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
+                    Break ended by system
+                  </div>
+                )}
+
+                {typeof entry?.breakOverdueMs === "number" &&
+                  entry.breakOverdueMs > 0 && (
+                    <div className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
+                      Overdue deducted
+                    </div>
+                  )}
+
+                {(entry.breakOverdueNote || entry.notes) && (
                   <p className="text-sm text-white/40 truncate">
-                    {entry.notes}
+                    {entry.breakOverdueNote || entry.notes}
                   </p>
                 )}
               </motion.div>
