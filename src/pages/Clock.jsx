@@ -152,9 +152,6 @@ export default function Clock() {
     currentAttendance?.breakOut,
   ]);
 
-  // Break can be auto-ended by the backend at 60 minutes. If the user leaves this
-  // page open and never clicks "Break Out", we should periodically refresh status
-  // so UI flips back to "clocked-in" when breakOut is set by the system.
   useEffect(() => {
     if (status !== "on-break") return;
 
@@ -173,8 +170,6 @@ export default function Clock() {
           // If backend duration is available, use it to drive timer.
           if (typeof data?.duration === "number" && data.duration > 0) {
             setStartTime(Date.now() - data.duration);
-          } else {
-            setStartTime((prev) => prev);
           }
 
           toast.success("Break ended automatically by system.");
@@ -196,6 +191,15 @@ export default function Clock() {
 
     return () => clearInterval(id);
   }, [status]);
+
+  const breakElapsedMinutes = breakStartTime
+    ? Math.floor((Date.now() - breakStartTime) / 60000)
+    : 0;
+
+  const breakLimitReached =
+    status === "on-break" && breakStartTime
+      ? Date.now() - breakStartTime >= BREAK_DURATION_MINUTES * 60_000
+      : false;
 
   const handleClockIn = async () => {
     if (hasClockedInToday || isMarkedAbsent) return;
@@ -580,14 +584,28 @@ export default function Clock() {
               >
                 <button
                   onClick={handleEndBreak}
-                  disabled={isLoading}
-                  className="py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading || breakLimitReached}
+                  title={
+                    breakLimitReached
+                      ? "Your break has reached the 60-minute limit and will be ended automatically by the system."
+                      : undefined
+                  }
+                  className={`py-4 rounded-2xl text-white font-semibold shadow-lg transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                    breakLimitReached
+                      ? "bg-white/10 border border-white/10"
+                      : "bg-gradient-to-r from-blue-500 to-blue-600 shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30"
+                  }`}
                 >
                   <span className="flex items-center justify-center gap-2">
                     {isLoading ? (
                       <>
                         <Spinner />
                         <span className="text-sm">Resuming...</span>
+                      </>
+                    ) : breakLimitReached ? (
+                      <>
+                        <StopIcon className="w-5 h-5" />
+                        Waiting for Auto-End
                       </>
                     ) : (
                       <>
@@ -617,6 +635,14 @@ export default function Clock() {
                   </span>
                 </button>
               </motion.div>
+            )}
+
+            {status === "on-break" && breakLimitReached && (
+              <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                Break limit reached ({breakElapsedMinutes}/
+                {BREAK_DURATION_MINUTES} min). The system will end your break
+                automatically.
+              </div>
             )}
           </AnimatePresence>
         </div>
