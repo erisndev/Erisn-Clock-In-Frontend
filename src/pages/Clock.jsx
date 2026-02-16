@@ -8,6 +8,8 @@ import toast from "react-hot-toast";
 import { formatTimeSA } from "../utils/time";
 import { getDisplayDuration } from "../utils/attendanceDuration";
 
+// Breaks are auto-ended server-side based on policy (MAX_BREAK_MINUTES).
+// Keep this as a UI hint for the countdown; backend remains the source of truth.
 const BREAK_DURATION_MINUTES = 60;
 const STATUS_POLL_INTERVAL_MS = 30_000;
 
@@ -172,7 +174,10 @@ export default function Clock() {
             setStartTime(Date.now() - data.duration);
           }
 
-          toast.success("Break ended automatically by system.");
+          // Only show auto-end messaging when the backend explicitly indicates it.
+          if (data?.breakEndedBySystem) {
+            toast.success("Break ended automatically by system.");
+          }
         }
 
         // Also handle if backend returns clocked-out (edge case)
@@ -196,10 +201,9 @@ export default function Clock() {
     ? Math.floor((Date.now() - breakStartTime) / 60000)
     : 0;
 
-  const breakLimitReached =
-    status === "on-break" && breakStartTime
-      ? Date.now() - breakStartTime >= BREAK_DURATION_MINUTES * 60_000
-      : false;
+  // Don't block the user from ending break based on client-side time.
+  // Backend enforces the maximum break duration and may already have auto-ended it.
+  const breakLimitReached = false;
 
   const handleClockIn = async () => {
     if (hasClockedInToday || isMarkedAbsent) return;
@@ -315,13 +319,22 @@ export default function Clock() {
       setStatus("clocked-in");
       setBreakStartTime(null);
       setBreakTaken(true);
-      // Adjust start time to continue from accumulated time
-      const now = Date.now();
-      setStartTime(now - accumulatedTime);
 
-      toast.success(
-        `Break ended. Break duration: ${data.breakDurationFormatted}`,
-      );
+      // Prefer backend duration for timer continuity (handles system auto-end too).
+      if (typeof data?.duration === "number" && data.duration >= 0) {
+        setStartTime(Date.now() - data.duration);
+      } else {
+        // Fallback: continue from work time captured at break start.
+        setStartTime(Date.now() - accumulatedTime);
+      }
+
+      if (data?.breakEndedBySystem) {
+        toast.success("Break was already ended by the system.");
+      } else {
+        toast.success(
+          `Break ended. Break duration: ${data.breakDurationFormatted}`,
+        );
+      }
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -587,17 +600,8 @@ export default function Clock() {
               >
                 <button
                   onClick={handleEndBreak}
-                  disabled={isLoading || breakLimitReached}
-                  title={
-                    breakLimitReached
-                      ? "Your break has reached the 60-minute limit and will be ended automatically by the system."
-                      : undefined
-                  }
-                  className={`py-4 rounded-2xl text-white font-semibold shadow-lg transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
-                    breakLimitReached
-                      ? "bg-white/10 border border-white/10"
-                      : "bg-gradient-to-r from-blue-500 to-blue-600 shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30"
-                  }`}
+                  disabled={isLoading}
+                  className="py-4 rounded-2xl text-white font-semibold shadow-lg transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-blue-500 to-blue-600 shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30"
                 >
                   <span className="flex items-center justify-center gap-2">
                     {isLoading ? (
@@ -605,15 +609,10 @@ export default function Clock() {
                         <Spinner />
                         <span className="text-sm">Resuming...</span>
                       </>
-                    ) : breakLimitReached ? (
-                      <>
-                        <StopIcon className="w-5 h-5" />
-                        Waiting for Auto-End
-                      </>
                     ) : (
                       <>
                         <PlayIcon className="w-5 h-5" />
-                        Break Out
+                        End Break
                       </>
                     )}
                   </span>
