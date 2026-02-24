@@ -25,6 +25,8 @@ export const clearToken = () => {
   localStorage.removeItem("token");
 };
 
+//
+
 // ==================== HTTP CLIENT ====================
 
 const request = async (endpoint, options = {}) => {
@@ -55,7 +57,10 @@ const request = async (endpoint, options = {}) => {
     const contentType = response.headers.get("content-type");
     if (contentType && !contentType.includes("application/json")) {
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Preserve status on non-JSON responses too
+        const error = new Error(`HTTP error! status: ${response.status}`);
+        error.status = response.status;
+        throw error;
       }
       return response;
     }
@@ -66,11 +71,24 @@ const request = async (endpoint, options = {}) => {
       const error = new Error(data.message || data.error || "Request failed");
       error.status = response.status;
       error.data = data;
+
+      // Global auth failure handling
+      if (isAuthError(error)) {
+        clearToken();
+        redirectToLogin();
+      }
+
       throw error;
     }
 
     return data;
   } catch (error) {
+    // If backend throws auth error via fetch wrapper, handle it here too.
+    if (isAuthError(error)) {
+      clearToken();
+      redirectToLogin();
+    }
+
     if (error.name === "TypeError" && error.message === "Failed to fetch") {
       throw new Error("Network error. Please check your connection.");
     }
