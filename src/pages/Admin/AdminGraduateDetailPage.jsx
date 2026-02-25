@@ -48,10 +48,6 @@ export default function AdminGraduateDetailPage() {
     const loadGraduateData = async () => {
       setLoading(true);
       try {
-        logger.groupCollapsed("[AdminGraduateDetailPage] loadGraduateData", {
-          id,
-        });
-
         // Get all graduates and find the one with matching ID
         const graduatesRes = await api.admin.getUsers({ role: "graduate" });
         logger.log("[AdminGraduateDetailPage] graduatesRes:", graduatesRes);
@@ -70,13 +66,6 @@ export default function AdminGraduateDetailPage() {
 
           // Get attendance history for this user
           try {
-            logger.groupCollapsed(
-              "[AdminGraduateDetailPage] attendance.getAll",
-              {
-                userId: id,
-              },
-            );
-
             const attendanceRes = await api.attendance.getAll({ userId: id });
             logger.log(
               "[AdminGraduateDetailPage] attendanceRes:",
