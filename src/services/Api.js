@@ -25,7 +25,19 @@ export const clearToken = () => {
   localStorage.removeItem("token");
 };
 
-//
+// helper used throughout the file to detect authorization failures
+export const isAuthError = (error) => {
+  if (!error) return false;
+  const status =
+    error.status || (error.response && error.response.status) || null;
+  return status === 401 || status === 403;
+};
+
+// simple redirect helper used when authentication has failed
+export const redirectToLogin = () => {
+  // use full navigation so that React router resets state
+  window.location.href = "/login";
+};
 
 // ==================== HTTP CLIENT ====================
 
@@ -395,6 +407,10 @@ const api = {
   registerServiceWorker,
   ensureNotificationPermission,
   enablePush,
+
+  // expose helpers for external use/debugging/testing
+  isAuthError,
+  redirectToLogin,
 };
 
 export default api;
