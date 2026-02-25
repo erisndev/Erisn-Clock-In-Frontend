@@ -98,9 +98,6 @@ const request = async (endpoint, options = {}) => {
 
 // ==================== WEB PUSH HELPERS ====================
 
-/**
- * Convert a base64url string into Uint8Array for PushManager.subscribe.
- */
 export const urlBase64ToUint8Array = (base64String) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -115,10 +112,6 @@ export const urlBase64ToUint8Array = (base64String) => {
   return outputArray;
 };
 
-/**
- * Fetch VAPID public key from backend.
- * Endpoint: GET /api/notifications/vapid-public-key
- */
 export const fetchVapidPublicKey = async () => {
   const res = await request("/notifications/vapid-public-key", {
     method: "GET",
@@ -127,10 +120,6 @@ export const fetchVapidPublicKey = async () => {
   return res.publicKey;
 };
 
-/**
- * Register a Service Worker.
- * Default path assumes your frontend serves the SW from the web root.
- */
 export const registerServiceWorker = async (swPath = "/sw.js") => {
   if (!("serviceWorker" in navigator)) {
     throw new Error("Service Worker is not supported in this browser.");
@@ -138,10 +127,6 @@ export const registerServiceWorker = async (swPath = "/sw.js") => {
   return navigator.serviceWorker.register(swPath);
 };
 
-/**
- * Ensure browser notification permission.
- * Returns 'granted' | 'denied' | 'default'
- */
 export const ensureNotificationPermission = async () => {
   if (!("Notification" in window)) {
     throw new Error("Notifications are not supported in this browser.");
@@ -152,13 +137,6 @@ export const ensureNotificationPermission = async () => {
   return permission;
 };
 
-/**
- * Create or reuse a PushSubscription and register it with the backend.
- *
- * Recommended frontend flow:
- * 1) await api.notifications.enablePush({ swPath: '/sw.js' })
- * 2) then you can call api.notifications.demoPush()
- */
 export const enablePush = async ({ swPath = "/sw.js" } = {}) => {
   const permission = await ensureNotificationPermission();
   if (permission !== "granted") {
@@ -179,10 +157,6 @@ export const enablePush = async ({ swPath = "/sw.js" } = {}) => {
       applicationServerKey,
     }));
 
-  // IMPORTANT:
-  // - Some backends expect the raw subscription object, not { subscription: ... }.
-  // - If payload shape doesn't match, demo push can still work but scheduled pushes won't
-  //   because the subscription is never correctly persisted on the user.
   await request("/notifications/subscribe", {
     method: "POST",
     body: subscription,
