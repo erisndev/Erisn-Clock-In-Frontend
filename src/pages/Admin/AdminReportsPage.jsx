@@ -493,7 +493,7 @@ export default function AdminReportsPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              // exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setViewReport(null)}
             />
@@ -615,7 +615,8 @@ export default function AdminReportsPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              // exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setFeedbackReport(null)}
             />
