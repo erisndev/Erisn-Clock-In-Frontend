@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/Api";
@@ -330,6 +330,25 @@ export default function AdminGraduateDetailPage() {
 
   const [exportFormat, setExportFormat] = useState("pdf");
   const [exporting, setExporting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDeleteUser = useCallback(async () => {
+    if (!id || deleting) return;
+    setDeleting(true);
+    try {
+      await api.admin.deleteUser(id);
+      toast.success(`${graduate?.name || "User"} has been deleted`);
+      navigate("/admin/graduates");
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      toast.error(error.message || "Failed to delete user");
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
+  }, [id, deleting, graduate, navigate]);
 
   const exportClockins = async () => {
     if (!graduate || !id) return;
@@ -429,10 +448,19 @@ export default function AdminGraduateDetailPage() {
               </div>
             </div>
           </div>
-          <Link to="/admin/graduates" className="btn-secondary">
-            <ArrowLeftIcon className="w-4 h-4" />
-            Back
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 transition-all cursor-pointer"
+            >
+              <TrashIcon className="w-4 h-4" />
+              Delete User
+            </button>
+            <Link to="/admin/graduates" className="btn-secondary">
+              <ArrowLeftIcon className="w-4 h-4" />
+              Back
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
@@ -738,6 +766,82 @@ export default function AdminGraduateDetailPage() {
           </motion.div>
         </div>
       </motion.div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => !deleting && setShowDeleteModal(false)}
+          />
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-md rounded-2xl bg-[#1a1a1a] border border-white/10 p-6 shadow-2xl"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <TrashIcon className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  Delete User
+                </h3>
+                <p className="text-sm text-white/50">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-white/70 mb-2">
+              Are you sure you want to permanently delete this user?
+            </p>
+            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-6">
+              <p className="font-medium text-white">{graduate.name}</p>
+              <p className="text-sm text-white/50">{graduate.email}</p>
+              {graduate.department && (
+                <span className="inline-block mt-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-400">
+                  {graduate.department}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-red-400/80 mb-6">
+              ⚠ All associated data including attendance records, reports, and
+              notifications will be permanently removed.
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.05] border border-white/10 text-white hover:bg-white/[0.08] transition-all disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={deleting}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {deleting ? (
+                  <>
+                    <Spinner className="w-4 h-4" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon className="w-4 h-4" />
+                    Delete User
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
@@ -832,6 +936,24 @@ function DocumentIcon({ className }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
       />
     </svg>
   );
