@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../../utils/logger";
 
 const DEPARTMENTS = [
   "Data Analyst",
@@ -41,7 +42,7 @@ export default function AdminGraduatesPage() {
         const grads = response.data || [];
         setGraduates(grads);
       } catch (error) {
-        console.error("Failed to load graduates:", error);
+        logger.error("Failed to load graduates:", error);
         toast.error(error.message || "Failed to load graduates");
       } finally {
         setLoading(false);

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import useScrollLock from "../../hooks/useScrollLock";
 import api from "../../services/Api";
+import logger from "./../../utils/logger";
 import toast from "react-hot-toast";
 
 // Helper functions for week calculations
@@ -26,7 +27,7 @@ function getWeekLabel(monday, friday) {
   const options = { month: "short", day: "numeric" };
   return `${monday.toLocaleDateString(
     "en-US",
-    options
+    options,
   )} - ${friday.toLocaleDateString("en-US", options)}`;
 }
 
@@ -112,12 +113,12 @@ export default function AdminReportsPage() {
       const reportsArray = Array.isArray(response?.data)
         ? response.data
         : Array.isArray(response)
-        ? response
-        : [];
+          ? response
+          : [];
       setReports(reportsArray);
-      console.log("Admin reports loaded:", response);
+      logger.log("Admin reports loaded:", response);
     } catch (error) {
-      console.error("Failed to load reports:", error);
+      logger.error("Failed to load reports:", error);
       toast.error("Failed to load reports");
     } finally {
       setInitialLoading(false);
@@ -237,7 +238,7 @@ export default function AdminReportsPage() {
       approved: reports.filter((r) => r.status === "Approved").length,
       rejected: reports.filter((r) => r.status === "Rejected").length,
     }),
-    [reports]
+    [reports],
   );
 
   return (
@@ -312,7 +313,7 @@ export default function AdminReportsPage() {
                 <button
                   onClick={() =>
                     setSelectedWeek((prev) =>
-                      prev === "all" ? defaultWeekValue : "all"
+                      prev === "all" ? defaultWeekValue : "all",
                     )
                   }
                   className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -438,7 +439,7 @@ export default function AdminReportsPage() {
                     </div>
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        report.status
+                        report.status,
                       )}`}
                     >
                       {report.status}
@@ -515,7 +516,7 @@ export default function AdminReportsPage() {
                 <div className="flex items-center gap-3">
                   <span
                     className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      viewReport.status
+                      viewReport.status,
                     )}`}
                   >
                     {viewReport.status}

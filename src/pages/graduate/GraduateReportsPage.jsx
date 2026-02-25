@@ -5,6 +5,7 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import useScrollLock from "../../hooks/useScrollLock";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../../utils/logger";
 
 export default function GraduateReportsPage() {
   const navigate = useNavigate();
@@ -19,14 +20,14 @@ export default function GraduateReportsPage() {
       try {
         const response = await api.reports.getMyReports();
         // Handle both { data: [...] } and direct array response
-        const reportsArray = Array.isArray(response?.data) 
-          ? response.data 
-          : Array.isArray(response) 
-            ? response 
+        const reportsArray = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
             : [];
         setReports(reportsArray);
       } catch (error) {
-        console.error("Failed to load reports:", error);
+        logger.error("Failed to load reports:", error);
         toast.error("Failed to load reports");
       } finally {
         setLoading(false);
@@ -129,7 +130,7 @@ export default function GraduateReportsPage() {
                   </div>
                   <span
                     className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      report.status
+                      report.status,
                     )}`}
                   >
                     {report.status}

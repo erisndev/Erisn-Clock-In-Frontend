@@ -5,6 +5,7 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import LiveClock from "../../components/LiveClock";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../../utils/logger";
 
 export default function GraduateDashboard() {
   const [timesheet, setTimesheet] = useState([]);
@@ -15,11 +16,12 @@ export default function GraduateDashboard() {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [statusResponse, historyResponse, reportsData] = await Promise.all([
-          api.attendance.getStatus(),
-          api.attendance.getHistory({ limit: 5 }),
-          api.reports.getMyReports(),
-        ]);
+        const [statusResponse, historyResponse, reportsData] =
+          await Promise.all([
+            api.attendance.getStatus(),
+            api.attendance.getHistory({ limit: 5 }),
+            api.reports.getMyReports(),
+          ]);
 
         // Set clock status from backend
         setClockStatus(statusResponse.status || "clocked-out");
@@ -33,10 +35,12 @@ export default function GraduateDashboard() {
         setTimesheet(attendanceArray);
 
         // Ensure reportsData.data is an array
-        const reportsArray = Array.isArray(reportsData?.data) ? reportsData.data : [];
+        const reportsArray = Array.isArray(reportsData?.data)
+          ? reportsData.data
+          : [];
         setReports(reportsArray);
       } catch (error) {
-        console.error("Failed to load dashboard data:", error);
+        logger.error("Failed to load dashboard data:", error);
         toast.error("Failed to load dashboard data");
       } finally {
         setLoading(false);
@@ -58,7 +62,8 @@ export default function GraduateDashboard() {
 
         // Fall back to parsing formatted strings like "8h 30m" / "8h 30m 10s"
         const formatted =
-          (typeof entry?.durationFormatted === "string" && entry.durationFormatted) ||
+          (typeof entry?.durationFormatted === "string" &&
+            entry.durationFormatted) ||
           (typeof entry?.duration === "string" && entry.duration) ||
           "";
 
@@ -73,13 +78,14 @@ export default function GraduateDashboard() {
       }, 0)
     : 0;
 
-  const pendingReports = Array.isArray(reports) ? reports.filter(
-    (r) => r.status === "Submitted" || r.status === "Reviewed"
-  ).length : 0;
-  
-  const approvedReports = Array.isArray(reports) ? reports.filter(
-    (r) => r.status === "Approved"
-  ).length : 0;
+  const pendingReports = Array.isArray(reports)
+    ? reports.filter((r) => r.status === "Submitted" || r.status === "Reviewed")
+        .length
+    : 0;
+
+  const approvedReports = Array.isArray(reports)
+    ? reports.filter((r) => r.status === "Approved").length
+    : 0;
 
   const recentEntries = Array.isArray(timesheet)
     ? timesheet
@@ -89,10 +95,15 @@ export default function GraduateDashboard() {
         // or placeholder/epoch-ish timestamps from the API. Those can show up as weird times
         // (e.g. 2:00 AM) even though no real clock-in exists in the DB.
         .filter((entry) => {
-          const attendanceStatus = String(entry?.attendanceStatus || "").toLowerCase();
+          const attendanceStatus = String(
+            entry?.attendanceStatus || "",
+          ).toLowerCase();
           const isAutoAbsentWorkday =
-            (attendanceStatus === "absent" && entry?.autoMarkedAbsent === true) ||
-            (entry?.type === "workday" && attendanceStatus === "absent" && !entry?.clockIn);
+            (attendanceStatus === "absent" &&
+              entry?.autoMarkedAbsent === true) ||
+            (entry?.type === "workday" &&
+              attendanceStatus === "absent" &&
+              !entry?.clockIn);
 
           if (isAutoAbsentWorkday) return false;
 
@@ -107,19 +118,22 @@ export default function GraduateDashboard() {
           return true;
         })
         // Ensure most recent first even if backend order changes
-        .sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime(),
+        )
         .slice(0, 5)
     : [];
 
   // Helper function to format duration
   const formatDuration = (record) => {
     if (!record.clockOut) return "In Progress";
-    
+
     // Use durationFormatted if available (from backend)
     if (record.durationFormatted) {
       return record.durationFormatted;
     }
-    
+
     // If duration is a number (milliseconds), format it
     if (typeof record.duration === "number") {
       const totalSeconds = Math.floor(record.duration / 1000);
@@ -127,12 +141,12 @@ export default function GraduateDashboard() {
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       return `${hours}h ${minutes}m`;
     }
-    
+
     // If duration is already a string, return it
     if (typeof record.duration === "string") {
       return record.duration;
     }
-    
+
     return "0h 0m";
   };
 
@@ -163,7 +177,10 @@ export default function GraduateDashboard() {
               <div className="h-5 w-36 rounded bg-white/[0.06] animate-pulse mb-4" />
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                  >
                     <div className="w-10 h-10 rounded-lg bg-white/[0.06] animate-pulse shrink-0" />
                     <div className="flex-1 space-y-2">
                       <div className="h-4 w-24 rounded bg-white/[0.06] animate-pulse" />
@@ -177,7 +194,10 @@ export default function GraduateDashboard() {
               <div className="h-5 w-28 rounded bg-white/[0.06] animate-pulse mb-4" />
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                  >
                     <div className="w-10 h-10 rounded-lg bg-white/[0.06] animate-pulse shrink-0" />
                     <div className="flex-1 space-y-2">
                       <div className="h-4 w-24 rounded bg-white/[0.06] animate-pulse" />
@@ -206,7 +226,7 @@ export default function GraduateDashboard() {
               </p>
             </div>
           </div>
-          
+
           {/* Live Clock Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -314,8 +334,12 @@ export default function GraduateDashboard() {
                       })
                     : "";
 
-                  const safeClockIn = entry?.clockIn ? new Date(entry.clockIn) : null;
-                  const safeClockOut = entry?.clockOut ? new Date(entry.clockOut) : null;
+                  const safeClockIn = entry?.clockIn
+                    ? new Date(entry.clockIn)
+                    : null;
+                  const safeClockOut = entry?.clockOut
+                    ? new Date(entry.clockOut)
+                    : null;
 
                   return (
                     <div
@@ -339,15 +363,16 @@ export default function GraduateDashboard() {
                                   minute: "2-digit",
                                 })
                               : "-"}
-                            {safeClockOut && !Number.isNaN(safeClockOut.getTime()) && (
-                              <>
-                                {" - "}
-                                {safeClockOut.toLocaleTimeString("en-US", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </>
-                            )}
+                            {safeClockOut &&
+                              !Number.isNaN(safeClockOut.getTime()) && (
+                                <>
+                                  {" - "}
+                                  {safeClockOut.toLocaleTimeString("en-US", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </>
+                              )}
                           </p>
                         </div>
                       </div>

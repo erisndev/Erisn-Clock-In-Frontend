@@ -1,17 +1,15 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
-import { Link } from "react-router-dom"
-import ReportCard from "../../components/ReportCard"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import ReportCard from "../../components/ReportCard";
 
 export default function ReportsList() {
-  const [reports, setReports] = useState([])
+  const [reports, setReports] = useState([]);
 
   useEffect(() => {
-    const storedReports = JSON.parse(localStorage.getItem("reports") || "[]")
-    setReports(storedReports)
-  }, [])
+    const storedReports = JSON.parse(localStorage.getItem("reports") || "[]");
+    setReports(storedReports);
+  }, []);
 
   return (
     <motion.div
@@ -41,8 +39,14 @@ export default function ReportsList() {
         </div>
 
         {reports.length === 0 ? (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20">
-            <p className="text-white/60 text-xl mb-6">No reports submitted yet</p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20"
+          >
+            <p className="text-white/60 text-xl mb-6">
+              No reports submitted yet
+            </p>
             <Link to="/reports/new">
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -69,5 +73,5 @@ export default function ReportsList() {
         )}
       </div>
     </motion.div>
-  )
+  );
 }

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/Api";
+import logger from "./../../utils/logger";
 
 export default function AdminDashboard() {
   const [reports, setReports] = useState([]);
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
             : [];
         setTimesheet(attendanceArray);
       } catch (error) {
-        console.error("Failed to load admin dashboard data", error);
+        logger.error("Failed to load admin dashboard data", error);
       } finally {
         setIsLoading(false);
       }
@@ -83,8 +84,6 @@ export default function AdminDashboard() {
     0,
   );
 
-  // Log breakdown so we can trace what contributes to the total.
-  // (Safe in production, but you can remove later.)
   useEffect(() => {
     if (!Array.isArray(closedEntries) || closedEntries.length === 0) return;
 
@@ -110,20 +109,6 @@ export default function AdminDashboard() {
     const top = breakdown.slice(0, 20);
     const sumTop = top.reduce((a, x) => a + x.hours, 0);
     const sumAll = breakdown.reduce((a, x) => a + x.hours, 0);
-
-    console.groupCollapsed(
-      `[AdminDashboard] Total hours debug | entries=${closedEntries.length} (closed only) | hours=${totalHours.toFixed(
-        2,
-      )}`,
-    );
-    console.log(
-      "sumAll(hours>0):",
-      sumAll.toFixed(2),
-      "sumTop20:",
-      sumTop.toFixed(2),
-    );
-    console.table(top);
-    console.groupEnd();
   }, [closedEntries, totalHours]);
 
   const recentReports = reports.slice(0, 5);
@@ -154,7 +139,11 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Total Graduates</span>
             <span className="stat-value">
-              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.totalGraduates}
+              {isLoading ? (
+                <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" />
+              ) : (
+                stats.totalGraduates
+              )}
             </span>
           </motion.div>
 
@@ -176,7 +165,11 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Total Reports</span>
             <span className="stat-value text-blue-400">
-              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.totalReports}
+              {isLoading ? (
+                <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" />
+              ) : (
+                stats.totalReports
+              )}
             </span>
           </motion.div>
 
@@ -188,7 +181,11 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">With Feedback</span>
             <span className="stat-value text-emerald-400">
-              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.withFeedback}
+              {isLoading ? (
+                <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" />
+              ) : (
+                stats.withFeedback
+              )}
             </span>
           </motion.div>
 
@@ -200,7 +197,11 @@ export default function AdminDashboard() {
           >
             <span className="stat-label">Awaiting Feedback</span>
             <span className="stat-value text-amber-400">
-              {isLoading ? <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" /> : stats.awaitingFeedback}
+              {isLoading ? (
+                <div className="h-7 w-12 rounded-md bg-white/[0.06] animate-pulse" />
+              ) : (
+                stats.awaitingFeedback
+              )}
             </span>
           </motion.div>
         </div>
@@ -209,110 +210,110 @@ export default function AdminDashboard() {
         {isLoading ? (
           <LoadingSkeleton />
         ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Reports */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="lg:col-span-2 glass-card p-6"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="section-title">Recent Reports</h2>
-              <Link
-                to="/admin/reports"
-                className="text-sm text-brand-red hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-
-            {recentReports.length === 0 ? (
-              <div className="py-8 text-center text-white/40">
-                <InboxIcon className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No reports submitted yet</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Recent Reports */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="lg:col-span-2 glass-card p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="section-title">Recent Reports</h2>
+                <Link
+                  to="/admin/reports"
+                  className="text-sm text-brand-red hover:underline"
+                >
+                  View all
+                </Link>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {recentReports.map((report) => (
-                  <div
-                    key={report._id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-brand-red/10 flex items-center justify-center">
-                        <DocumentIcon className="w-5 h-5 text-brand-red" />
+
+              {recentReports.length === 0 ? (
+                <div className="py-8 text-center text-white/40">
+                  <InboxIcon className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                  <p>No reports submitted yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentReports.map((report) => (
+                    <div
+                      key={report._id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-brand-red/10 flex items-center justify-center">
+                          <DocumentIcon className="w-5 h-5 text-brand-red" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white capitalize">
+                            Weekly Report
+                          </p>
+                          <p className="text-xs text-white/50">
+                            {report.userId?.name || "Graduate"} •{" "}
+                            {new Date(report.weekStart).toLocaleDateString()} -{" "}
+                            {new Date(report.weekEnd).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-white capitalize">
-                          Weekly Report
-                        </p>
-                        <p className="text-xs text-white/50">
-                          {report.userId?.name || "Graduate"} •{" "}
-                          {new Date(report.weekStart).toLocaleDateString()} -{" "}
-                          {new Date(report.weekEnd).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
-                      {report.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Graduates List */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="glass-card p-6"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="section-title">Graduates</h2>
-              <Link
-                to="/admin/graduates"
-                className="text-sm text-brand-red hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-
-            {graduates.length === 0 ? (
-              <div className="py-8 text-center text-white/40">
-                <UsersIcon className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                <p>No graduates registered</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {graduates.slice(0, 5).map((graduate) => (
-                  <Link
-                    key={graduate._id}
-                    to={`/admin/graduates/${graduate._id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
-                        {graduate.name?.charAt(0) || "G"}
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
+                        {report.status}
                       </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {graduate.name}
-                      </p>
-                      <p className="text-xs text-white/50 truncate">
-                        {graduate.email}
-                      </p>
-                    </div>
-                    <ChevronRightIcon className="w-4 h-4 text-white/30" />
-                  </Link>
-                ))}
+                  ))}
+                </div>
+              )}
+            </motion.div>
+
+            {/* Graduates List */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="glass-card p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="section-title">Graduates</h2>
+                <Link
+                  to="/admin/graduates"
+                  className="text-sm text-brand-red hover:underline"
+                >
+                  View all
+                </Link>
               </div>
-            )}
-          </motion.div>
-        </div>
+
+              {graduates.length === 0 ? (
+                <div className="py-8 text-center text-white/40">
+                  <UsersIcon className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                  <p>No graduates registered</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {graduates.slice(0, 5).map((graduate) => (
+                    <Link
+                      key={graduate._id}
+                      to={`/admin/graduates/${graduate._id}`}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-red to-red-600 flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">
+                          {graduate.name?.charAt(0) || "G"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">
+                          {graduate.name}
+                        </p>
+                        <p className="text-xs text-white/50 truncate">
+                          {graduate.email}
+                        </p>
+                      </div>
+                      <ChevronRightIcon className="w-4 h-4 text-white/30" />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </div>
         )}
       </div>
     </DashboardLayout>
@@ -401,9 +402,7 @@ function Spinner({ className = "w-5 h-5" }) {
 
 function SkeletonLine({ className = "" }) {
   return (
-    <div
-      className={`rounded-lg bg-white/[0.06] animate-pulse ${className}`}
-    />
+    <div className={`rounded-lg bg-white/[0.06] animate-pulse ${className}`} />
   );
 }
 

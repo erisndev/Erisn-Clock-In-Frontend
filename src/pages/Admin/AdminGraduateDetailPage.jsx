@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../../utils/logger";
 
 // Helper function to get all weekdays (Mon-Fri) for a given month
 function getWeekdaysInMonth(year, month) {
@@ -39,7 +40,7 @@ export default function AdminGraduateDetailPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
       2,
-      "0"
+      "0",
     )}`;
   });
 
@@ -47,47 +48,60 @@ export default function AdminGraduateDetailPage() {
     const loadGraduateData = async () => {
       setLoading(true);
       try {
-        console.groupCollapsed("[AdminGraduateDetailPage] loadGraduateData", { id });
+        logger.groupCollapsed("[AdminGraduateDetailPage] loadGraduateData", {
+          id,
+        });
 
         // Get all graduates and find the one with matching ID
         const graduatesRes = await api.admin.getUsers({ role: "graduate" });
-        console.log("[AdminGraduateDetailPage] graduatesRes:", graduatesRes);
+        logger.log("[AdminGraduateDetailPage] graduatesRes:", graduatesRes);
 
         const graduates = graduatesRes.data || [];
-        console.log("[AdminGraduateDetailPage] graduates count:", graduates.length);
+        logger.log(
+          "[AdminGraduateDetailPage] graduates count:",
+          graduates.length,
+        );
 
         const found = graduates.find((u) => u._id === id);
-        console.log("[AdminGraduateDetailPage] found graduate:", found);
+        logger.log("[AdminGraduateDetailPage] found graduate:", found);
 
         if (found) {
           setGraduate(found);
 
           // Get attendance history for this user
           try {
-            console.groupCollapsed("[AdminGraduateDetailPage] attendance.getAll", {
-              userId: id,
-            });
+            logger.groupCollapsed(
+              "[AdminGraduateDetailPage] attendance.getAll",
+              {
+                userId: id,
+              },
+            );
 
             const attendanceRes = await api.attendance.getAll({ userId: id });
-            console.log("[AdminGraduateDetailPage] attendanceRes:", attendanceRes);
-            console.log(
+            logger.log(
+              "[AdminGraduateDetailPage] attendanceRes:",
+              attendanceRes,
+            );
+            logger.log(
               "[AdminGraduateDetailPage] attendanceRes.data type:",
-              Array.isArray(attendanceRes?.data) ? "array" : typeof attendanceRes?.data
+              Array.isArray(attendanceRes?.data)
+                ? "array"
+                : typeof attendanceRes?.data,
             );
 
             const attendanceArray = Array.isArray(attendanceRes?.data)
               ? attendanceRes.data
               : Array.isArray(attendanceRes)
-              ? attendanceRes
-              : [];
+                ? attendanceRes
+                : [];
 
-            console.log(
+            logger.log(
               "[AdminGraduateDetailPage] attendanceArray length:",
-              attendanceArray.length
+              attendanceArray.length,
             );
-            console.log(
+            logger.log(
               "[AdminGraduateDetailPage] attendanceArray sample (first 3):",
-              attendanceArray.slice(0, 3)
+              attendanceArray.slice(0, 3),
             );
 
             // Quick sanity check: are we accidentally receiving other users?
@@ -96,51 +110,63 @@ export default function AdminGraduateDetailPage() {
               .filter((e) => e.user?._id && e.user?._id !== id);
 
             if (userIdMismatches.length > 0) {
-              console.warn(
+              logger.warn(
                 "[AdminGraduateDetailPage] WARNING: attendance entries contain mismatching userIds:",
-                userIdMismatches.slice(0, 5)
+                userIdMismatches.slice(0, 5),
               );
             }
 
             setTimesheet(attendanceArray);
 
-            console.groupEnd();
+            logger.groupEnd();
           } catch (err) {
-            console.error("[AdminGraduateDetailPage] Failed to load attendance:", err);
+            logger.error(
+              "[AdminGraduateDetailPage] Failed to load attendance:",
+              err,
+            );
             setTimesheet([]);
-            console.groupEnd();
+            logger.groupEnd();
           }
 
           // Get reports for this user
           try {
             const reportsRes = await api.admin.getReports({ userId: id });
-            console.log("[AdminGraduateDetailPage] reportsRes:", reportsRes);
+            logger.log("[AdminGraduateDetailPage] reportsRes:", reportsRes);
 
             // Handle both { data: [...] } and direct array response
             const reportsArray = Array.isArray(reportsRes?.data)
               ? reportsRes.data
               : Array.isArray(reportsRes)
-              ? reportsRes
-              : [];
+                ? reportsRes
+                : [];
 
-            console.log("[AdminGraduateDetailPage] reportsArray length:", reportsArray.length);
-            console.log(
+            logger.log(
+              "[AdminGraduateDetailPage] reportsArray length:",
+              reportsArray.length,
+            );
+            logger.log(
               "[AdminGraduateDetailPage] reportsArray sample (first 3):",
-              reportsArray.slice(0, 3)
+              reportsArray.slice(0, 3),
             );
 
             setReports(reportsArray);
           } catch (err) {
-            console.error("[AdminGraduateDetailPage] Failed to load reports:", err);
+            logger.error(
+              "[AdminGraduateDetailPage] Failed to load reports:",
+              err,
+            );
             setReports([]);
           }
         } else {
           setGraduate(null);
         }
 
-        console.groupEnd();
+        logger.groupEnd();
       } catch (error) {
-        console.error("[AdminGraduateDetailPage] Failed to load graduate data:", error);
+        logger.error(
+          "[AdminGraduateDetailPage] Failed to load graduate data:",
+          error,
+        );
         toast.error("Failed to load graduate data");
       } finally {
         setLoading(false);
@@ -162,7 +188,8 @@ export default function AdminGraduateDetailPage() {
     }
 
     const formatted =
-      (typeof entry?.durationFormatted === "string" && entry.durationFormatted) ||
+      (typeof entry?.durationFormatted === "string" &&
+        entry.durationFormatted) ||
       (typeof entry?.duration === "string" && entry.duration) ||
       "";
 
@@ -181,7 +208,10 @@ export default function AdminGraduateDetailPage() {
       ? timesheet.filter((e) => Boolean(e?.clockOut) || e?.isClosed === true)
       : [];
 
-    return closedEntries.reduce((acc, entry) => acc + parseDurationToHours(entry), 0);
+    return closedEntries.reduce(
+      (acc, entry) => acc + parseDurationToHours(entry),
+      0,
+    );
   }, [timesheet]);
 
   // Generate attendance data for all weekdays in selected month
@@ -196,11 +226,14 @@ export default function AdminGraduateDetailPage() {
 
     // Debug timesheet mapping (helps detect timezone/dateKey issues)
     try {
-      console.groupCollapsed("[AdminGraduateDetailPage] attendanceData build", {
+      logger.groupCollapsed("[AdminGraduateDetailPage] attendanceData build", {
         selectedMonth,
         timesheetCount: Array.isArray(timesheet) ? timesheet.length : 0,
       });
-      console.log("[AdminGraduateDetailPage] timesheet sample (first 5):", (timesheet || []).slice(0, 5));
+      logger.log(
+        "[AdminGraduateDetailPage] timesheet sample (first 5):",
+        (timesheet || []).slice(0, 5),
+      );
     } catch (_) {
       // ignore logging failures
     }
@@ -217,19 +250,22 @@ export default function AdminGraduateDetailPage() {
 
     try {
       const keys = Object.keys(timesheetByDate);
-      console.log("[AdminGraduateDetailPage] timesheetByDate keys (sample):", keys.slice(0, 10));
+      logger.log(
+        "[AdminGraduateDetailPage] timesheetByDate keys (sample):",
+        keys.slice(0, 10),
+      );
       if (keys.length > 0) {
         const k = keys[0];
-        console.log(
+        logger.log(
           `[AdminGraduateDetailPage] timesheetByDate['${k}'] length:`,
-          timesheetByDate[k]?.length
+          timesheetByDate[k]?.length,
         );
-        console.log(
+        logger.log(
           `[AdminGraduateDetailPage] timesheetByDate['${k}'] sample:`,
-          (timesheetByDate[k] || []).slice(0, 2)
+          (timesheetByDate[k] || []).slice(0, 2),
         );
       }
-      console.groupEnd();
+      logger.groupEnd();
     } catch (_) {
       // ignore logging failures
     }
@@ -288,13 +324,13 @@ export default function AdminGraduateDetailPage() {
   // Calculate stats for selected month
   const monthStats = useMemo(() => {
     const presentDays = attendanceData.filter(
-      (d) => d.status === "present" || d.status === "in-progress"
+      (d) => d.status === "present" || d.status === "in-progress",
     ).length;
     const absentDays = attendanceData.filter(
-      (d) => d.status === "absent"
+      (d) => d.status === "absent",
     ).length;
     const totalWorkDays = attendanceData.filter(
-      (d) => d.status !== "future"
+      (d) => d.status !== "future",
     ).length;
     const totalHoursMonth = attendanceData.reduce((acc, d) => acc + d.hours, 0);
 
@@ -317,7 +353,7 @@ export default function AdminGraduateDetailPage() {
     for (let i = 0; i < 12; i++) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const value = `${date.getFullYear()}-${String(
-        date.getMonth() + 1
+        date.getMonth() + 1,
       ).padStart(2, "0")}`;
       const label = date.toLocaleDateString("en-US", {
         month: "long",
@@ -342,7 +378,7 @@ export default function AdminGraduateDetailPage() {
       toast.success(`${graduate?.name || "User"} has been deleted`);
       navigate("/admin/graduates");
     } catch (error) {
-      console.error("Failed to delete user:", error);
+      logger.error("Failed to delete user:", error);
       toast.error(error.message || "Failed to delete user");
     } finally {
       setDeleting(false);
@@ -377,7 +413,7 @@ export default function AdminGraduateDetailPage() {
 
       toast.success(`Attendance exported as ${exportFormat.toUpperCase()}`);
     } catch (error) {
-      console.error("Export failed:", error);
+      logger.error("Export failed:", error);
       toast.error(error.message || "Failed to export attendance");
     } finally {
       setExporting(false);
@@ -655,19 +691,19 @@ export default function AdminGraduateDetailPage() {
                             day.status === "present"
                               ? "bg-emerald-500/10 text-emerald-400"
                               : day.status === "in-progress"
-                              ? "bg-amber-500/10 text-amber-400"
-                              : day.status === "absent"
-                              ? "bg-red-500/10 text-red-400"
-                              : "bg-white/10 text-white/40"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : day.status === "absent"
+                                  ? "bg-red-500/10 text-red-400"
+                                  : "bg-white/10 text-white/40"
                           }`}
                         >
                           {day.status === "present"
                             ? "Present"
                             : day.status === "in-progress"
-                            ? "In Progress"
-                            : day.status === "absent"
-                            ? "Absent"
-                            : "Upcoming"}
+                              ? "In Progress"
+                              : day.status === "absent"
+                                ? "Absent"
+                                : "Upcoming"}
                         </span>
 
                         {day.entries?.some((e) => e?.breakOverdueNote) && (
@@ -723,10 +759,10 @@ export default function AdminGraduateDetailPage() {
                             report.status === "Approved"
                               ? "bg-emerald-500/10 text-emerald-400"
                               : report.status === "Rejected"
-                              ? "bg-red-500/10 text-red-400"
-                              : report.status === "Reviewed"
-                              ? "bg-yellow-500/10 text-yellow-400"
-                              : "bg-blue-500/10 text-blue-400"
+                                ? "bg-red-500/10 text-red-400"
+                                : report.status === "Reviewed"
+                                  ? "bg-yellow-500/10 text-yellow-400"
+                                  : "bg-blue-500/10 text-blue-400"
                           }`}
                         >
                           {report.status}

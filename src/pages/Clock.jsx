@@ -7,6 +7,7 @@ import api from "../services/Api";
 import toast from "react-hot-toast";
 import { formatTimeSA } from "../utils/time";
 import { getDisplayDuration } from "../utils/attendanceDuration";
+import logger from "./../utils/logger";
 
 // Breaks are auto-ended server-side based on policy (MAX_BREAK_MINUTES).
 // Keep this as a UI hint for the countdown; backend remains the source of truth.
@@ -122,7 +123,7 @@ export default function Clock() {
           setHasClockedInToday(true);
         }
       } catch (error) {
-        console.error("Failed to initialize clock:", error);
+        logger.error("Failed to initialize clock:", error);
         toast.error("Failed to load clock status");
       } finally {
         setInitialLoading(false);
@@ -275,8 +276,8 @@ export default function Clock() {
         await api.notifications.enablePush();
       } catch (e) {
         // Non-fatal: break should still start even if user denies/dismisses permission.
-        // eslint-disable-next-line no-console
-        console.warn("Push enable skipped/failed:", e);
+        // eslint-disable-next-line no-logger
+        logger.warn("Push enable skipped/failed:", e);
       }
 
       const response = await api.attendance.breakIn();
@@ -460,7 +461,9 @@ export default function Clock() {
                   );
                 }
 
-                return <Timer startTime={effectiveStartTime} isRunning={true} />;
+                return (
+                  <Timer startTime={effectiveStartTime} isRunning={true} />
+                );
               })()}
             </motion.div>
           )}

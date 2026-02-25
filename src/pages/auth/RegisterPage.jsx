@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../../utils/logger";
 
 const DEPARTMENTS = [
   "Data Analyst",
@@ -77,7 +78,7 @@ export default function RegisterPage() {
       payload.province = province;
     }
 
-    console.log("Register payload:", payload);
+    // logger.log("Register payload:", payload);
 
     try {
       await api.auth.register(payload);
@@ -147,7 +148,7 @@ export default function RegisterPage() {
                 >
                   Graduate
                 </button>
-                <button
+                {/* <button
                   type="button"
                   onClick={() => setRole("admin")}
                   className={`py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -157,7 +158,7 @@ export default function RegisterPage() {
                   }`}
                 >
                   Admin
-                </button>
+                </button> */}
               </div>
             </div>
 
@@ -355,30 +356,6 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="px-2 bg-[#0d0d0d] text-white/40">
-                or continue with
-              </span>
-            </div>
-          </div>
-
-          {/* Social login */}
-          <div className="grid grid-cols-2 gap-3">
-            <button className="btn-secondary py-2.5 text-sm">
-              <GoogleIcon className="w-4 h-4" />
-              Google
-            </button>
-            <button className="btn-secondary py-2.5 text-sm">
-              <MicrosoftIcon className="w-4 h-4" />
-              Microsoft
-            </button>
-          </div>
         </div>
 
         <p className="mt-5 text-center text-sm text-white/50">

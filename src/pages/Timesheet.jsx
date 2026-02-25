@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import api from "../services/Api";
 import toast from "react-hot-toast";
 import { formatDateSA, formatTimeSA } from "../utils/time";
+import logger from "./../utils/logger";
 
 export default function Timesheet() {
   const [entries, setEntries] = useState([]);
@@ -62,13 +63,13 @@ export default function Timesheet() {
       const entriesArray = Array.isArray(response?.data)
         ? response.data
         : Array.isArray(response)
-        ? response
-        : [];
+          ? response
+          : [];
 
       // Defensive filtering: ignore clearly-invalid placeholder records
       const sanitizedEntries = entriesArray.filter((entry) => {
         const statusStr = String(
-          entry?.attendanceStatus || entry?.status || entry?.state || ""
+          entry?.attendanceStatus || entry?.status || entry?.state || "",
         ).toLowerCase();
         const isAbsentLike =
           statusStr === "absent" ||
@@ -106,7 +107,7 @@ export default function Timesheet() {
 
       setEntries(filtered);
     } catch (error) {
-      console.error("Failed to load timesheet:", error);
+      logger.error("Failed to load timesheet:", error);
       toast.error("Failed to load timesheet");
     } finally {
       setInitialLoading(false);
@@ -205,38 +206,42 @@ export default function Timesheet() {
   };
 
   // Full-page skeleton only on very first load
-  if (initialLoading) return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="stat-card">
-            <div className="h-3 w-20 rounded bg-white/[0.06] animate-pulse" />
-            <div className="h-7 w-14 rounded bg-white/[0.06] animate-pulse mt-2" />
-          </div>
-        ))}
-      </div>
-      <div className="glass-card p-6">
-        <div className="flex flex-col sm:flex-row gap-4">
+  if (initialLoading)
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex-1 h-11 rounded-xl bg-white/[0.06] animate-pulse" />
-          ))}
-        </div>
-      </div>
-      <div className="glass-card p-4">
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="flex items-center gap-4 py-3">
-              <div className="h-4 w-24 rounded bg-white/[0.06] animate-pulse" />
-              <div className="h-4 w-16 rounded bg-white/[0.06] animate-pulse" />
-              <div className="h-4 w-16 rounded bg-white/[0.06] animate-pulse" />
-              <div className="h-4 w-20 rounded bg-white/[0.06] animate-pulse" />
-              <div className="h-4 w-32 rounded bg-white/[0.06] animate-pulse hidden md:block" />
+            <div key={i} className="stat-card">
+              <div className="h-3 w-20 rounded bg-white/[0.06] animate-pulse" />
+              <div className="h-7 w-14 rounded bg-white/[0.06] animate-pulse mt-2" />
             </div>
           ))}
         </div>
+        <div className="glass-card p-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="flex-1 h-11 rounded-xl bg-white/[0.06] animate-pulse"
+              />
+            ))}
+          </div>
+        </div>
+        <div className="glass-card p-4">
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-4 py-3">
+                <div className="h-4 w-24 rounded bg-white/[0.06] animate-pulse" />
+                <div className="h-4 w-16 rounded bg-white/[0.06] animate-pulse" />
+                <div className="h-4 w-16 rounded bg-white/[0.06] animate-pulse" />
+                <div className="h-4 w-20 rounded bg-white/[0.06] animate-pulse" />
+                <div className="h-4 w-32 rounded bg-white/[0.06] animate-pulse hidden md:block" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <div className="space-y-6">
@@ -412,7 +417,7 @@ export default function Timesheet() {
                           entry?.attendanceStatus ||
                             entry?.status ||
                             entry?.state ||
-                            ""
+                            "",
                         ).toLowerCase() === "absent" ||
                         entry?.isAbsent === true ||
                         entry?.markedAbsent === true ||
@@ -481,7 +486,7 @@ export default function Timesheet() {
                       entry?.attendanceStatus ||
                         entry?.status ||
                         entry?.state ||
-                        ""
+                        "",
                     ).toLowerCase() === "absent" ||
                     entry?.isAbsent === true ||
                     entry?.markedAbsent === true ||

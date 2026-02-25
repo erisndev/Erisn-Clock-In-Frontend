@@ -1,17 +1,15 @@
-"use client"
-
-import { useState } from "react"
-import { motion } from "framer-motion"
+import { useState } from "react";
+import { motion } from "framer-motion";
 
 export default function FileUpload({ onFilesChange }) {
-  const [files, setFiles] = useState([])
+  const [files, setFiles] = useState([]);
 
   const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files)
-    const fileNames = selectedFiles.map((f) => f.name)
-    setFiles(fileNames)
-    onFilesChange(fileNames)
-  }
+    const selectedFiles = Array.from(e.target.files);
+    const fileNames = selectedFiles.map((f) => f.name);
+    setFiles(fileNames);
+    onFilesChange(fileNames);
+  };
 
   return (
     <div>
@@ -19,7 +17,12 @@ export default function FileUpload({ onFilesChange }) {
         whileHover={{ scale: 1.02 }}
         className="block w-full bg-[#1A1A1A] border-2 border-dashed border-brand-red rounded-xl p-6 text-center cursor-pointer hover:bg-[#222222] transition-all"
       >
-        <input type="file" multiple onChange={handleFileChange} className="hidden" />
+        <input
+          type="file"
+          multiple
+          onChange={handleFileChange}
+          className="hidden"
+        />
         <div className="text-brand-red text-4xl mb-2">📁</div>
         <p className="text-white font-semibold">Click to upload files</p>
         <p className="text-white/60 text-sm">or drag and drop</p>
@@ -46,5 +49,5 @@ export default function FileUpload({ onFilesChange }) {
         </motion.div>
       )}
     </div>
-  )
+  );
 }

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import DashboardLayout from "../components/layout/DashboardLayout";
 import api from "../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../utils/logger";
 
 const DEPARTMENTS = [
   "Data Analyst",
@@ -82,7 +83,7 @@ export default function SettingsPage() {
           });
         }
       } catch (error) {
-        console.error("Failed to load settings:", error);
+        logger.error("Failed to load settings:", error);
         toast.error("Failed to load settings");
       } finally {
         setLoading(false);

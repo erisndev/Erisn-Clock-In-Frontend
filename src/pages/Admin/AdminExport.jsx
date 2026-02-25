@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import api from "../../services/Api";
 import toast from "react-hot-toast";
+import logger from "./../../utils/logger";
 
 export default function AdminExport() {
   const [year, setYear] = useState(new Date().getFullYear());
@@ -23,7 +24,7 @@ export default function AdminExport() {
         const grads = Array.isArray(response) ? response : response.data || [];
         setUsers(grads);
       } catch (error) {
-        console.error("Failed to load users:", error);
+        logger.error("Failed to load users:", error);
       } finally {
         setLoadingUsers(false);
       }
@@ -94,7 +95,7 @@ export default function AdminExport() {
 
       toast.success("Attendance exported successfully");
     } catch (error) {
-      console.error("Export failed:", error);
+      logger.error("Export failed:", error);
       toast.error(error.message || "Failed to export attendance");
     } finally {
       setLoading(false);
