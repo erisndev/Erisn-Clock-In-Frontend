@@ -412,7 +412,7 @@ export default function AdminReportsPage() {
           ) : (
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {contentLoading && (
-                <div className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-[2px] flex items-center justify-center rounded-xl">
+                <div className="fixed inset-0 z-10 bg-black/30 backdrop-blur-[2px] flex items-center justify-center rounded-xl">
                   <div className="flex items-center gap-3 text-white/70">
                     <Spinner className="w-5 h-5" />
                     <span className="text-sm font-medium">Loading...</span>
