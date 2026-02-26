@@ -254,11 +254,7 @@ export default function Clock() {
       setBreakTaken(false);
       setNote("");
 
-      toast.success(
-        `Clocked out! Total work time: ${data.durationFormatted}${
-          data?.clockOut ? ` (Out: ${formatTimeSA(data.clockOut)})` : ""
-        }`,
-      );
+      toast.success(`Clocked out successfully.`);
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -269,22 +265,15 @@ export default function Clock() {
   const handleStartBreak = async () => {
     setIsLoading(true);
     try {
-      // Best-effort: ensure the user has web push enabled so the backend can deliver
-      // the "Break almost over" reminder at minute 50.
-      // NOTE: Permission prompts must be triggered by a user gesture; this is one.
       try {
         await api.notifications.enablePush();
       } catch (e) {
-        // Non-fatal: break should still start even if user denies/dismisses permission.
-        // eslint-disable-next-line no-logger
         logger.warn("Push enable skipped/failed:", e);
       }
 
       const response = await api.attendance.breakIn();
       const { data } = response;
 
-      // Ensure work time pauses at "work time before break" if backend provides it.
-      // This prevents showing projected/capped durations while on break.
       setCurrentAttendance((prev) => ({
         ...(prev || {}),
         ...data,
