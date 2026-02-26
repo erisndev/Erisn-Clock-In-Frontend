@@ -11,15 +11,15 @@ export default function LoginPage() {
 
   // If token exists and is still valid, redirect straight to the correct dashboard.
   useEffect(() => {
-    let cancelled = false;
-
     const checkExistingSession = async () => {
       const token = api.getToken();
       if (!token) return;
 
+      const pendingEmail = sessionStorage.getItem("pendingEmail");
+      if (pendingEmail) return; // 👈 prevent redirect if verifying OTP
+
       try {
         const userData = await api.user.getProfile();
-        if (cancelled) return;
 
         if (userData?.role === "admin") {
           navigate("/admin/dashboard", { replace: true });
@@ -27,17 +27,13 @@ export default function LoginPage() {
           navigate("/dashboard", { replace: true });
         }
       } catch (e) {
-        // Invalid/expired token
         api.clearToken();
       }
     };
 
     checkExistingSession();
-
-    return () => {
-      cancelled = true;
-    };
   }, [navigate]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -52,7 +48,7 @@ export default function LoginPage() {
 
       // Update profile with additional info if present
       const additionalInfo = JSON.parse(
-        sessionStorage.getItem("additionalInfo")
+        sessionStorage.getItem("additionalInfo"),
       );
       if (additionalInfo) {
         try {
