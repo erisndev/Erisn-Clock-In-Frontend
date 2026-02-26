@@ -7,6 +7,7 @@ export default function VerifyOtp() {
   const navigate = useNavigate();
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendLoading, setIsResendLoading] = useState(false);
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
@@ -38,11 +39,14 @@ export default function VerifyOtp() {
       return;
     }
 
+    setIsResendLoading(true);
     try {
       await api.auth.resendOtp({ email });
       toast.success("New OTP sent to your email.");
     } catch (error) {
       toast.error(error.message);
+    } finally {
+      setIsResendLoading(false);
     }
   };
 
@@ -83,9 +87,10 @@ export default function VerifyOtp() {
           <div className="mt-4 text-center">
             <button
               onClick={handleResendOtp}
-              className="text-brand-red hover:underline text-sm"
+              disabled={isResendLoading}
+              className="text-brand-red hover:underline text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Resend OTP
+              {isResendLoading ? "Sending..." : "Resend OTP"}
             </button>
           </div>
         </div>
