@@ -66,7 +66,10 @@ export default function AdminGraduateDetailPage() {
 
           // Get attendance history for this user
           try {
-            const attendanceRes = await api.attendance.getAll({ userId: id });
+            const attendanceRes = await api.attendance.getAll({
+              userId: id,
+              limit: 100000,
+            });
             logger.log(
               "[AdminGraduateDetailPage] attendanceRes:",
               attendanceRes,

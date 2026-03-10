@@ -28,6 +28,7 @@ import AdminReportsPage from "./pages/Admin/AdminReportsPage";
 import AdminGraduatesPage from "./pages/Admin/AdminGraduatesPage";
 import AdminGraduateDetailPage from "./pages/Admin/AdminGraduateDetailPage";
 import AdminExport from "./pages/Admin/AdminExport";
+import GraduatesAttendanceView from "./pages/Admin/GraduatesAttendanceView";
 
 function App() {
   return (
@@ -145,6 +146,14 @@ function App() {
                 element={
                   <ProtectedRoute adminOnly>
                     <AdminExport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/graduates-attendance"
+                element={
+                  <ProtectedRoute adminOnly>
+                    <GraduatesAttendanceView />
                   </ProtectedRoute>
                 }
               />

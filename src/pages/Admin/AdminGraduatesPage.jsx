@@ -164,47 +164,66 @@ export default function AdminGraduatesPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="stat-card"
-          >
-            <span className="stat-label">Total Graduates</span>
-            <span className="stat-value">{graduates.length}</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="stat-card"
-          >
-            <span className="stat-label">Filtered Results</span>
-            <span className="stat-value text-emerald-400">
-              {filteredGraduates.length}
-            </span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="stat-card"
-          >
-            <span className="stat-label">Departments</span>
-            <span className="stat-value text-blue-400">
-              {Object.keys(departmentCounts).length}
-            </span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="stat-card"
-          >
-            <span className="stat-label">Verified</span>
-            <span className="stat-value text-brand-red">
-              {graduates.filter((g) => g.isEmailVerified).length}
-            </span>
-          </motion.div>
+          {loading ? (
+            <>
+              {[1, 2, 3, 4].map((i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="stat-card"
+                >
+                  <div className="h-3 w-20 rounded bg-white/[0.06] animate-pulse" />
+                  <div className="h-7 w-14 rounded bg-white/[0.06] animate-pulse mt-2" />
+                </motion.div>
+              ))}
+            </>
+          ) : (
+            <>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="stat-card"
+              >
+                <span className="stat-label">Total Graduates</span>
+                <span className="stat-value">{graduates.length}</span>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="stat-card"
+              >
+                <span className="stat-label">Filtered Results</span>
+                <span className="stat-value text-emerald-400">
+                  {filteredGraduates.length}
+                </span>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="stat-card"
+              >
+                <span className="stat-label">Departments</span>
+                <span className="stat-value text-blue-400">
+                  {Object.keys(departmentCounts).length}
+                </span>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="stat-card"
+              >
+                <span className="stat-label">Verified</span>
+                <span className="stat-value text-brand-red">
+                  {graduates.filter((g) => g.isEmailVerified).length}
+                </span>
+              </motion.div>
+            </>
+          )}
         </div>
 
         {/* Graduates Grid */}

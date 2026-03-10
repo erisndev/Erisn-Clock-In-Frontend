@@ -51,11 +51,13 @@ export default function Timesheet() {
 
       // Send month and year as query params for backend filtering
       if (month) {
-        params.month = parseInt(month).toString();
+        params.month = month;
       }
       if (year) {
         params.year = year.toString();
       }
+      // Ensure we get all records, not limited
+      params.limit = 100000;
 
       const response = await api.attendance.getHistory(params);
 
@@ -333,203 +335,209 @@ export default function Timesheet() {
       </motion.div>
 
       {/* Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="glass-card overflow-hidden relative"
-      >
-        {/* Table loading overlay — only covers the table, not the whole page */}
-        {tableLoading && (
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
-            <div className="flex items-center gap-3 text-white/70">
-              <svg
-                className="animate-spin h-5 w-5"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              <span className="text-sm font-medium">Loading...</span>
-            </div>
+      {tableLoading ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card p-12 flex items-center justify-center"
+        >
+          <div className="flex items-center gap-3 text-white/70">
+            <svg
+              className="animate-spin h-6 w-6"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+            <span className="text-sm font-medium">
+              Loading timesheet data...
+            </span>
           </div>
-        )}
-
-        {/* Desktop Table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="table-header">Date</th>
-                <th className="table-header">Clock In</th>
-                <th className="table-header">Clock Out</th>
-                <th className="table-header">Duration</th>
-                <th className="table-header">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-12 text-center text-white/40"
-                  >
-                    No timesheet entries found
-                  </td>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-card overflow-hidden"
+        >
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="table-header">Date</th>
+                  <th className="table-header">Clock In</th>
+                  <th className="table-header">Clock Out</th>
+                  <th className="table-header">Duration</th>
+                  <th className="table-header">Note</th>
                 </tr>
-              ) : (
-                entries.map((entry, index) => (
-                  <motion.tr
-                    key={entry._id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
-                  >
-                    <td className="table-cell font-medium text-white">
-                      {formatDateSA(entry.clockIn) || entry?.date || "-"}
+              </thead>
+              <tbody>
+                {entries.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-4 py-12 text-center text-white/40"
+                    >
+                      No timesheet entries found
                     </td>
-                    <td className="table-cell">
-                      {formatTimeSA(entry.clockIn) || "-"}
-                    </td>
-                    <td className="table-cell">
-                      {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
-                    </td>
-                    <td className="table-cell">
-                      {entry.clockOut ? (
-                        <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
-                          {entry.durationFormatted || formatDuration(entry)}
-                        </span>
-                      ) : String(
-                          entry?.attendanceStatus ||
-                            entry?.status ||
-                            entry?.state ||
-                            "",
-                        ).toLowerCase() === "absent" ||
-                        entry?.isAbsent === true ||
-                        entry?.markedAbsent === true ||
-                        entry?.absent === true ||
-                        entry?.is_absent === true ||
-                        entry?.marked_absent === true ? (
-                        <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400">
-                          Absent
-                        </span>
-                      ) : (
-                        <span className="text-white/30">-</span>
-                      )}
-                    </td>
-                    <td className="table-cell text-white/50 max-w-[200px]">
-                      <div className="flex flex-col gap-1">
-                        {(entry?.breakEndedBySystem === true ||
-                          entry?.breakEndedBySystem === "true") && (
-                          <span className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
-                            Break ended by system
+                  </tr>
+                ) : (
+                  entries.map((entry, index) => (
+                    <motion.tr
+                      key={entry._id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+                    >
+                      <td className="table-cell font-medium text-white">
+                        {formatDateSA(entry.clockIn) || entry?.date || "-"}
+                      </td>
+                      <td className="table-cell">
+                        {formatTimeSA(entry.clockIn) || "-"}
+                      </td>
+                      <td className="table-cell">
+                        {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
+                      </td>
+                      <td className="table-cell">
+                        {entry.clockOut ? (
+                          <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                            {entry.durationFormatted || formatDuration(entry)}
                           </span>
+                        ) : String(
+                            entry?.attendanceStatus ||
+                              entry?.status ||
+                              entry?.state ||
+                              "",
+                          ).toLowerCase() === "absent" ||
+                          entry?.isAbsent === true ||
+                          entry?.markedAbsent === true ||
+                          entry?.absent === true ||
+                          entry?.is_absent === true ||
+                          entry?.marked_absent === true ? (
+                          <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400">
+                            Absent
+                          </span>
+                        ) : (
+                          <span className="text-white/30">-</span>
                         )}
-
-                        {typeof entry?.breakOverdueMs === "number" &&
-                          entry.breakOverdueMs > 0 && (
-                            <span className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
-                              Overdue deducted
+                      </td>
+                      <td className="table-cell text-white/50 max-w-[200px]">
+                        <div className="flex flex-col gap-1">
+                          {(entry?.breakEndedBySystem === true ||
+                            entry?.breakEndedBySystem === "true") && (
+                            <span className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
+                              Break ended by system
                             </span>
                           )}
 
-                        <span className="truncate">
-                          {entry.breakOverdueNote || entry.notes || "-"}
-                        </span>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                          {typeof entry?.breakOverdueMs === "number" &&
+                            entry.breakOverdueMs > 0 && (
+                              <span className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
+                                Overdue deducted
+                              </span>
+                            )}
 
-        {/* Mobile Cards */}
-        <div className="md:hidden divide-y divide-white/[0.06]">
-          {entries.length === 0 ? (
-            <div className="px-4 py-12 text-center text-white/40">
-              No timesheet entries found
-            </div>
-          ) : (
-            entries.map((entry, index) => (
-              <motion.div
-                key={entry._id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-white">
-                    {formatDateSA(entry.clockIn) || entry?.date || "-"}
-                  </span>
-                  {entry.clockOut ? (
-                    <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
-                      {entry.durationFormatted || formatDuration(entry)}
-                    </span>
-                  ) : String(
-                      entry?.attendanceStatus ||
-                        entry?.status ||
-                        entry?.state ||
-                        "",
-                    ).toLowerCase() === "absent" ||
-                    entry?.isAbsent === true ||
-                    entry?.markedAbsent === true ||
-                    entry?.absent === true ||
-                    entry?.is_absent === true ||
-                    entry?.marked_absent === true ? (
-                    <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400">
-                      Absent
-                    </span>
-                  ) : (
-                    <span className="text-white/30">-</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-4 text-sm text-white/60">
-                  <span>In: {formatTimeSA(entry.clockIn) || "-"}</span>
-                  <span>
-                    Out: {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
-                  </span>
-                </div>
-                {(entry?.breakEndedBySystem === true ||
-                  entry?.breakEndedBySystem === "true") && (
-                  <div className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
-                    Break ended by system
-                  </div>
+                          <span className="truncate">
+                            {entry.breakOverdueNote || entry.notes || "-"}
+                          </span>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))
                 )}
+              </tbody>
+            </table>
+          </div>
 
-                {typeof entry?.breakOverdueMs === "number" &&
-                  entry.breakOverdueMs > 0 && (
-                    <div className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
-                      Overdue deducted
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-white/[0.06]">
+            {entries.length === 0 ? (
+              <div className="px-4 py-12 text-center text-white/40">
+                No timesheet entries found
+              </div>
+            ) : (
+              entries.map((entry, index) => (
+                <motion.div
+                  key={entry._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-white">
+                      {formatDateSA(entry.clockIn) || entry?.date || "-"}
+                    </span>
+                    {entry.clockOut ? (
+                      <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                        {entry.durationFormatted || formatDuration(entry)}
+                      </span>
+                    ) : String(
+                        entry?.attendanceStatus ||
+                          entry?.status ||
+                          entry?.state ||
+                          "",
+                      ).toLowerCase() === "absent" ||
+                      entry?.isAbsent === true ||
+                      entry?.markedAbsent === true ||
+                      entry?.absent === true ||
+                      entry?.is_absent === true ||
+                      entry?.marked_absent === true ? (
+                      <span className="inline-flex px-2 py-1 rounded-md text-xs font-medium bg-red-500/10 text-red-400">
+                        Absent
+                      </span>
+                    ) : (
+                      <span className="text-white/30">-</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-white/60">
+                    <span>In: {formatTimeSA(entry.clockIn) || "-"}</span>
+                    <span>
+                      Out: {entry.clockOut ? formatTimeSA(entry.clockOut) : "-"}
+                    </span>
+                  </div>
+                  {(entry?.breakEndedBySystem === true ||
+                    entry?.breakEndedBySystem === "true") && (
+                    <div className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300">
+                      Break ended by system
                     </div>
                   )}
 
-                {(entry.breakOverdueNote || entry.notes) && (
-                  <p className="text-sm text-white/40 truncate">
-                    {entry.breakOverdueNote || entry.notes}
-                  </p>
-                )}
-              </motion.div>
-            ))
-          )}
-        </div>
-      </motion.div>
+                  {typeof entry?.breakOverdueMs === "number" &&
+                    entry.breakOverdueMs > 0 && (
+                      <div className="inline-flex w-fit px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300">
+                        Overdue deducted
+                      </div>
+                    )}
+
+                  {(entry.breakOverdueNote || entry.notes) && (
+                    <p className="text-sm text-white/40 truncate">
+                      {entry.breakOverdueNote || entry.notes}
+                    </p>
+                  )}
+                </motion.div>
+              ))
+            )}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

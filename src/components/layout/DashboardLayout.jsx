@@ -54,7 +54,12 @@ export default function DashboardLayout({ children }) {
     { to: "/admin/dashboard", label: "Overview", icon: HomeIcon },
     { to: "/admin/reports", label: "Reports", icon: InboxIcon },
     { to: "/admin/graduates", label: "Graduates", icon: UsersIcon },
-    { to: "/admin/export", label: "Export", icon: DownloadIcon },
+    {
+      to: "/admin/graduates-attendance",
+      label: "Today's Attendance",
+      icon: CalendarIcon,
+    },
+    { to: "/admin/export", label: "Export Attendance", icon: DownloadIcon },
   ];
 
   const links = role === "admin" ? adminLinks : graduateLinks;

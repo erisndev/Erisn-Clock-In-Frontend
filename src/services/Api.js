@@ -25,9 +25,6 @@ export const clearToken = () => {
   localStorage.removeItem("token");
 };
 
-// helper used throughout the file to detect authorization failures
-// Only treat 401 (Unauthorized) as auto-redirect worthy
-// 403 (Forbidden) can be contextual (e.g., email not verified during login) and should be handled by components
 export const isAuthError = (error) => {
   if (!error) return false;
   const status =
@@ -35,9 +32,7 @@ export const isAuthError = (error) => {
   return status === 401;
 };
 
-// simple redirect helper used when authentication has failed
 export const redirectToLogin = () => {
-  // use full navigation so that React router resets state
   window.location.href = "/login";
 };
 
@@ -86,8 +81,8 @@ const request = async (endpoint, options = {}) => {
       error.status = response.status;
       error.data = data;
 
-      // Global auth failure handling
-      if (isAuthError(error)) {
+      const isLoginEndpoint = endpoint.includes("/auth/login");
+      if (isAuthError(error) && !isLoginEndpoint) {
         clearToken();
         redirectToLogin();
       }
@@ -97,8 +92,8 @@ const request = async (endpoint, options = {}) => {
 
     return data;
   } catch (error) {
-    // If backend throws auth error via fetch wrapper, handle it here too.
-    if (isAuthError(error)) {
+    const isLoginEndpoint = endpoint.includes("/auth/login");
+    if (isAuthError(error) && !isLoginEndpoint) {
       clearToken();
       redirectToLogin();
     }
@@ -380,6 +375,12 @@ export const admin = {
   },
   getGraduates: () => request("/users/graduates", { method: "GET" }),
   deleteUser: (id) => request(`/users/${id}`, { method: "DELETE" }),
+  getGraduatesAttendanceToday: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/graduates-attendance${query ? `?${query}` : ""}`, {
+      method: "GET",
+    });
+  },
 };
 
 // ==================== HEALTH API ====================

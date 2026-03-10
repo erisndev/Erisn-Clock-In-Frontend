@@ -348,32 +348,47 @@ export default function AdminReportsPage() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div className="glass-card px-4 py-3">
-              <p className="text-xs text-white/50">Total</p>
-              <p className="text-xl font-bold text-white">{stats.total}</p>
-            </div>
-            <div className="glass-card px-4 py-3">
-              <p className="text-xs text-white/50">Submitted</p>
-              <p className="text-xl font-bold text-blue-400">
-                {stats.submitted}
-              </p>
-            </div>
-            <div className="glass-card px-4 py-3">
-              <p className="text-xs text-white/50">Reviewed</p>
-              <p className="text-xl font-bold text-yellow-400">
-                {stats.reviewed}
-              </p>
-            </div>
-            <div className="glass-card px-4 py-3">
-              <p className="text-xs text-white/50">Approved</p>
-              <p className="text-xl font-bold text-emerald-400">
-                {stats.approved}
-              </p>
-            </div>
-            <div className="glass-card px-4 py-3">
-              <p className="text-xs text-white/50">Rejected</p>
-              <p className="text-xl font-bold text-red-400">{stats.rejected}</p>
-            </div>
+            {initialLoading ? (
+              <>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="glass-card px-4 py-3">
+                    <div className="h-3 w-12 rounded bg-white/[0.06] animate-pulse mb-2" />
+                    <div className="h-6 w-8 rounded bg-white/[0.06] animate-pulse" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="glass-card px-4 py-3">
+                  <p className="text-xs text-white/50">Total</p>
+                  <p className="text-xl font-bold text-white">{stats.total}</p>
+                </div>
+                <div className="glass-card px-4 py-3">
+                  <p className="text-xs text-white/50">Submitted</p>
+                  <p className="text-xl font-bold text-blue-400">
+                    {stats.submitted}
+                  </p>
+                </div>
+                <div className="glass-card px-4 py-3">
+                  <p className="text-xs text-white/50">Reviewed</p>
+                  <p className="text-xl font-bold text-yellow-400">
+                    {stats.reviewed}
+                  </p>
+                </div>
+                <div className="glass-card px-4 py-3">
+                  <p className="text-xs text-white/50">Approved</p>
+                  <p className="text-xl font-bold text-emerald-400">
+                    {stats.approved}
+                  </p>
+                </div>
+                <div className="glass-card px-4 py-3">
+                  <p className="text-xs text-white/50">Rejected</p>
+                  <p className="text-xl font-bold text-red-400">
+                    {stats.rejected}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Reports Grid */}
