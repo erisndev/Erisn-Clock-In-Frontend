@@ -142,7 +142,8 @@ export default function GraduateReportsPage() {
                 </p>
 
                 <p className="text-xs text-white/40 mb-3">
-                  Submitted {new Date(report.createdAt).toLocaleDateString()}
+                  {report.status === "Draft" ? "Saved" : "Submitted"}{" "}
+                  {new Date(report.createdAt).toLocaleDateString()}
                 </p>
 
                 {report.reviewComment && (
@@ -156,13 +157,27 @@ export default function GraduateReportsPage() {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setViewReport(report)}
-                  className="mt-4 w-full py-2 rounded-lg bg-blue-500/10 text-blue-400 text-sm font-medium hover:bg-blue-500/20 transition-colors"
-                >
-                  View
-                </button>
+                <div className="mt-4 flex gap-2">
+                  {report.status === "Draft" ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(`/reports/edit/${report._id}`)
+                      }
+                      className="flex-1 py-2 rounded-lg bg-amber-500/10 text-amber-400 text-sm font-medium hover:bg-amber-500/20 transition-colors"
+                    >
+                      Edit & Submit
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setViewReport(report)}
+                      className="flex-1 py-2 rounded-lg bg-blue-500/10 text-blue-400 text-sm font-medium hover:bg-blue-500/20 transition-colors"
+                    >
+                      View
+                    </button>
+                  )}
+                </div>
               </motion.div>
             ))}
           </div>

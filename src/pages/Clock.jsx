@@ -226,6 +226,11 @@ export default function Clock() {
       setNote("");
 
       toast.success("Clocked in successfully");
+
+      // Force UI to refresh once after clock-in so timers start immediately
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } catch (error) {
       const msg = error?.message || "Failed to clock in";
 
@@ -325,6 +330,11 @@ export default function Clock() {
           `Break ended. Break duration: ${data.breakDurationFormatted}`,
         );
       }
+
+      // Force UI to refresh once after break-out so work timer resumes immediately
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } catch (error) {
       toast.error(error.message);
     } finally {

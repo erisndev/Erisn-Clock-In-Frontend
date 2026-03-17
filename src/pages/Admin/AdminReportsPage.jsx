@@ -141,9 +141,10 @@ export default function AdminReportsPage() {
     loadReports();
   }, [statusFilter, selectedWeek]);
 
-  // Filter reports by search query
+  // Filter reports by search query and exclude drafts
   const filteredReports = useMemo(() => {
-    let filtered = reports;
+    // Admin should never see draft reports
+    let filtered = reports.filter((r) => r.status !== "Draft");
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
@@ -229,17 +230,17 @@ export default function AdminReportsPage() {
   const currentWeekLabel =
     weekOptions.find((w) => w.value === selectedWeek)?.label || "All Weeks";
 
-  // Stats
-  const stats = useMemo(
-    () => ({
-      total: reports.length,
-      submitted: reports.filter((r) => r.status === "Submitted").length,
-      reviewed: reports.filter((r) => r.status === "Reviewed").length,
-      approved: reports.filter((r) => r.status === "Approved").length,
-      rejected: reports.filter((r) => r.status === "Rejected").length,
-    }),
-    [reports],
-  );
+  // Stats (exclude drafts from admin stats)
+  const stats = useMemo(() => {
+    const nonDraftReports = reports.filter((r) => r.status !== "Draft");
+    return {
+      total: nonDraftReports.length,
+      submitted: nonDraftReports.filter((r) => r.status === "Submitted").length,
+      reviewed: nonDraftReports.filter((r) => r.status === "Reviewed").length,
+      approved: nonDraftReports.filter((r) => r.status === "Approved").length,
+      rejected: nonDraftReports.filter((r) => r.status === "Rejected").length,
+    };
+  }, [reports]);
 
   return (
     <>

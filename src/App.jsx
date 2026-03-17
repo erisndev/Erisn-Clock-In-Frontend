@@ -92,6 +92,14 @@ function App() {
                 }
               />
               <Route
+                path="/reports/edit/:id"
+                element={
+                  <ProtectedRoute>
+                    <NewReport />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/settings"
                 element={
                   <ProtectedRoute>
