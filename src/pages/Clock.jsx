@@ -9,8 +9,6 @@ import { formatTimeSA } from "../utils/time";
 import { getDisplayDuration } from "../utils/attendanceDuration";
 import logger from "./../utils/logger";
 
-// Breaks are auto-ended server-side based on policy (MAX_BREAK_MINUTES).
-// Keep this as a UI hint for the countdown; backend remains the source of truth.
 const BREAK_DURATION_MINUTES = 60;
 const STATUS_POLL_INTERVAL_MS = 30_000;
 
@@ -38,15 +36,12 @@ export default function Clock() {
 
         if (currentStatus === "clocked-out" || !data) {
           setCurrentAttendance(null);
-          // User not clocked in right now.
-          // Still need to know whether they've already clocked in earlier today.
           setStatus("clocked-out");
           setStartTime(null);
           setBreakStartTime(null);
           setAccumulatedTime(0);
           setBreakTaken(false);
 
-          // Check if there's a clock-in record for today; if yes, disable clock-in.
           try {
             const todayResp = await api.attendance.getToday();
             const todayRecord = todayResp?.data;
@@ -95,31 +90,29 @@ export default function Clock() {
               }
             }
           } catch {
-            // If endpoint isn't available or fails, fall back to allowing clock-in.
             setHasClockedInToday(false);
           }
         } else if (currentStatus === "clocked-in") {
           setHasClockedInToday(true);
           setCurrentAttendance(data);
-          // User is working
+
           setStatus("clocked-in");
           setStartTime(new Date(data.clockIn).getTime());
           setBreakTaken(data.breakTaken || false);
-          // Account for any previous break time - use duration from backend
+
           if (data.duration > 0) {
-            // Adjust start time so timer shows correct elapsed time
             const now = Date.now();
             setStartTime(now - data.duration);
           }
         } else if (currentStatus === "on-break") {
           setCurrentAttendance(data);
-          // User is on break
+
           setStatus("on-break");
           setStartTime(new Date(data.clockIn).getTime());
           setBreakStartTime(new Date(data.breakIn).getTime());
-          // Store work time before break
+
           setAccumulatedTime(data.duration || 0);
-          setBreakTaken(false); // Will be true after break ends
+          setBreakTaken(false);
           setHasClockedInToday(true);
         }
       } catch (error) {
@@ -133,7 +126,6 @@ export default function Clock() {
     initializeClock();
   }, []);
 
-  // Make the work timer tick live while session is open AND not currently on break.
   useEffect(() => {
     const isOpen =
       Boolean(currentAttendance?.clockIn) &&
@@ -163,25 +155,21 @@ export default function Clock() {
         const response = await api.attendance.getStatus();
         const { status: currentStatus, data } = response;
 
-        // If backend says break is no longer active, update UI state.
         if (currentStatus === "clocked-in" && data) {
           setCurrentAttendance((prev) => ({ ...(prev || {}), ...data }));
           setStatus("clocked-in");
           setBreakStartTime(null);
           setBreakTaken(true);
 
-          // If backend duration is available, use it to drive timer.
           if (typeof data?.duration === "number" && data.duration > 0) {
             setStartTime(Date.now() - data.duration);
           }
 
-          // Only show auto-end messaging when the backend explicitly indicates it.
           if (data?.breakEndedBySystem) {
             toast.success("Break ended automatically by system.");
           }
         }
 
-        // Also handle if backend returns clocked-out (edge case)
         if (currentStatus === "clocked-out") {
           setCurrentAttendance(null);
           setStatus("clocked-out");
@@ -190,9 +178,7 @@ export default function Clock() {
           setAccumulatedTime(0);
           setBreakTaken(false);
         }
-      } catch {
-        // ignore polling failures
-      }
+      } catch {}
     }, STATUS_POLL_INTERVAL_MS);
 
     return () => clearInterval(id);
@@ -202,8 +188,6 @@ export default function Clock() {
     ? Math.floor((Date.now() - breakStartTime) / 60000)
     : 0;
 
-  // Don't block the user from ending break based on client-side time.
-  // Backend enforces the maximum break duration and may already have auto-ended it.
   const breakLimitReached = false;
 
   const handleClockIn = async () => {
@@ -226,17 +210,11 @@ export default function Clock() {
       setNote("");
 
       toast.success("Clocked in successfully");
-
-      // Force UI to refresh once after clock-in so timers start immediately
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
     } catch (error) {
       const msg = error?.message || "Failed to clock in";
 
       toast.error(msg);
 
-      // If backend says user already clocked in today, lock the button.
       if (msg.toLowerCase().includes("already clocked in today")) {
         setHasClockedInToday(true);
       }
@@ -290,7 +268,7 @@ export default function Clock() {
       }));
       setStatus("on-break");
       setBreakStartTime(new Date(data.breakIn).getTime());
-      // Store current work time from backend
+
       setAccumulatedTime(data.workTimeBeforeBreak || 0);
 
       toast.success("Break started");
@@ -315,11 +293,9 @@ export default function Clock() {
       setBreakStartTime(null);
       setBreakTaken(true);
 
-      // Prefer backend duration for timer continuity (handles system auto-end too).
       if (typeof data?.duration === "number" && data.duration >= 0) {
         setStartTime(Date.now() - data.duration);
       } else {
-        // Fallback: continue from work time captured at break start.
         setStartTime(Date.now() - accumulatedTime);
       }
 
@@ -330,11 +306,6 @@ export default function Clock() {
           `Break ended. Break duration: ${data.breakDurationFormatted}`,
         );
       }
-
-      // Force UI to refresh once after break-out so work timer resumes immediately
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -434,18 +405,9 @@ export default function Clock() {
                 </p>
               </div>
 
-              {/*
-                Bring back the original timer UI, but feed it a startTime that reflects
-                the live duration derived from attendance data (same logic as Timesheet).
-
-                We set: effectiveStartTime = now - liveDurationMs
-              */}
               {(() => {
                 const d = getDisplayDuration(currentAttendance);
 
-                // Always drive the UI from the derived duration.
-                // When paused, Timer will display `pausedAt`.
-                // When running, Timer will display Date.now() - startTime.
                 const durationMs = d?.durationMs || 0;
                 const effectiveStartTime = Date.now() - durationMs;
 
