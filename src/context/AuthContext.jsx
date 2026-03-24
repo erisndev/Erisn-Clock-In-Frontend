@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const { user, token } = await api.auth.login({ email, password });
+    const { user, token } = await api.auth.login({ email: email.trim().toLowerCase(), password });
     setUser(user);
     return user;
   };

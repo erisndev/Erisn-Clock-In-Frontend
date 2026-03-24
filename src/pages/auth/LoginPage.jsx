@@ -71,7 +71,7 @@ export default function LoginPage() {
       }
     } catch (error) {
       if (error.status === 403) {
-        sessionStorage.setItem("pendingEmail", email);
+        sessionStorage.setItem("pendingEmail", email.trim().toLowerCase());
         navigate("/verify-otp");
       } else {
         toast.error(error.message);

@@ -67,7 +67,7 @@ export default function RegisterPage() {
     // Build payload - only include province and department for graduates
     const payload = {
       name,
-      email,
+      email: email.trim().toLowerCase(),
       password,
       role,
       cellNumber,
@@ -82,7 +82,7 @@ export default function RegisterPage() {
 
     try {
       await api.auth.register(payload);
-      sessionStorage.setItem("pendingEmail", email);
+      sessionStorage.setItem("pendingEmail", email.trim().toLowerCase());
 
       navigate("/verify-otp");
     } catch (error) {

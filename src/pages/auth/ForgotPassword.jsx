@@ -13,7 +13,7 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      await api.auth.forgotPassword({ email });
+      await api.auth.forgotPassword({ email: email.trim().toLowerCase() });
       toast.success("Reset link sent to your email.");
     } catch (error) {
       toast.error(error.message);
